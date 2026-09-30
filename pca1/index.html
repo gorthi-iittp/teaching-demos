@@ -111,6 +111,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
 @media(prefers-reduced-motion:reduce){ *{scroll-behavior:auto} }
 .kicker{font-family:var(--sans); font-size:.78rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--keep); margin:0 0 .4rem}
 </style>
+<link rel="stylesheet" href="../assets/feedback.css">
 </head>
 <body>
 <div class="wrap">
@@ -123,6 +124,8 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
     <button class="themebtn" id="theme" type="button">Dark</button>
   </div>
   <p class="lede">A direction through a cloud of points splits its spread in two: what the projection keeps, and what the projection throws away. Rotate the line and watch the split move.</p>
+
+  <div id="fb-predict"></div>
 
   <div class="panel">
     <div class="stage">
@@ -237,8 +240,10 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
 
   </div>
 
+  <div id="fb-reflect"></div>
+
   <footer>
-    Points are simulated from a bivariate Gaussian whose correlation and scaling you control. Nothing is fetched or stored &mdash; refresh to reset.
+    Points are simulated from a bivariate Gaussian whose correlation and scaling you control. The simulation runs entirely in your browser. The feedback box sends only your anonymous answers and optional comment &mdash; no name, email or login.
     <br>Next in this pair: <a href="../pca2/">How many components is enough?</a>
   </footer>
 </div>
@@ -744,5 +749,29 @@ render();
 
 })();
 </script>
+<script>
+window.DEMO_FEEDBACK = {
+  demo: "pca1",
+  question: {
+    text: "You will rotate a line through a cloud of points. When the line is turned to keep as much of the spread as possible, what happens to the part the projection throws away?",
+    options: [
+      "It is also as large as possible.",
+      "It is as small as possible.",
+      "It stays the same, whatever the angle.",
+      "It depends on how the points are scattered."
+    ],
+    correct: 1,
+    explain: "The kept part and the thrown-away part always add up to the same total spread, which rotating the line cannot change. So making one as large as possible makes the other as small as possible: maximum projected variance and minimum reconstruction error pick the same line. That is why the total length of the stacked bar never moves."
+  },
+  helpfulText: "Did this demo help you understand how PCA chooses its direction?",
+  goatcounter: "",   // e.g. "https://gorthi-iittp.goatcounter.com/count"
+  form: {
+    action: "",      // e.g. "https://docs.google.com/forms/d/e/FORM_ID/formResponse"
+    fields: { demo: "", pre: "", post: "", helpful: "", comment: "" }   // e.g. "entry.123456789"
+  },
+  debug: false
+};
+</script>
+<script src="../assets/feedback.js" defer></script>
 </body>
 </html>
