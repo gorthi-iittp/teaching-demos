@@ -95,6 +95,10 @@ li{margin-bottom:.45rem}
 footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule);
   font-family:var(--sans); font-size:.8rem; color:var(--muted)}
 .kicker{font-family:var(--sans); font-size:.78rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--keep); margin:0 0 .4rem}
+.subsup{display:inline-block; position:relative; width:.75em; height:1em; vertical-align:baseline}
+.subsup sup,.subsup sub{position:absolute; left:0; font-size:.72em; line-height:1}
+.subsup sup{top:-.35em}
+.subsup sub{bottom:-.3em}
 </style>
 </head>
 <body>
@@ -170,7 +174,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule);
   <div class="prose">
 
     <h2>What the three squares are</h2>
-    <p>The left square is the original image, a point in 576 dimensions. The middle one is that point projected onto the first M principal directions and mapped back, <span style="font-family:var(--sans);font-size:.92em">x&#770; = x&#772; + W<sub>M</sub>W<sub>M</sub>&#8868;(x &minus; x&#772;)</span>. The right one is the difference between them, the part of the image that lives in the directions you discarded.</p>
+    <p>The left square is the original image, a point in 576 dimensions. The middle one is that point projected onto the first M principal directions and mapped back, <span style="font-family:var(--sans);font-size:.92em;white-space:nowrap">x&#770; = x&#772; + W<sub>M</sub>W<span class="subsup"><sup>&#8868;</sup><sub>M</sub></span>(x &minus; x&#772;)</span>. The right one is the difference between them, the part of the image that lives in the directions you discarded.</p>
     <p>Slide M to zero. The reconstruction becomes the mean digit and every image in the set rebuilds to the same blur, because with no components there is nothing left that distinguishes one image from another. Every step up adds one number per image and one more direction to spend it on.</p>
 
     <h2>Where the error comes from</h2>
