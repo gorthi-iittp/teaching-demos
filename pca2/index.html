@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How many components is enough?</title>
+<title>PCA &middot; How many components is enough?</title>
 <style>
 :root{
   --paper:#fbfbf9; --panel:#ffffff; --ink:#16191d; --muted:#6a7078;
@@ -94,13 +94,15 @@ li{margin-bottom:.45rem}
   padding:.7rem .85rem; margin:0 0 1rem; overflow-x:auto; white-space:nowrap}
 footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule);
   font-family:var(--sans); font-size:.8rem; color:var(--muted)}
+.kicker{font-family:var(--sans); font-size:.78rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--keep); margin:0 0 .4rem}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="topbar">
-    <div><h1>How many components is enough?</h1></div>
+    <div><p class="kicker">Principal Component Analysis (PCA) &middot; demo 2 of 2</p>
+      <h1>How many components is enough?</h1></div>
     <button class="themebtn" id="theme" type="button">Dark</button>
   </div>
   <p class="lede">Each of these digits is 576 numbers &mdash; a 24&times;24 grid. Rebuild it from a few dozen and watch what survives, and where the missing part went.</p>
