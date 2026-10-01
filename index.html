@@ -3,76 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Teaching demos</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<title>Interactive Teaching Demos</title>
+<meta name="description" content="Short, hands-on machine learning demos that run in the browser: ROC curves, PCA and support vector machines.">
 <style>
 :root{
-  --bg:#eef1ed; --panel:#ffffff;
-  --ink:#141a1e; --ink-2:#4b555d; --ink-3:#7d878f;
-  --rule:#d6dbd5; --rule-2:#e7ebe6;
-  --accent:#1d6fb8;
-  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --bg:#fbfbf9; --panel:#ffffff; --ink:#16191d; --ink-2:#3a4148; --muted:#555c63; --rule:#e2e5e9;
+  --navy:#1b4570; --navy-hover:#13324f; --tag-bg:#d9e3ef; --teal:#2e7d6b; --teal-rule:#d3e8e2; --btn-ink:#ffffff;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#12161a; --panel:#1a1f24;
-    --ink:#e9edf0; --ink-2:#a9b3ba; --ink-3:#78848c;
-    --rule:#2c333a; --rule-2:#232a30;
-    --accent:#4f9fe0;
+  :root{
+    --bg:#14171a; --panel:#1b1f23; --ink:#e7e9ea; --ink-2:#c3c9ce; --muted:#99a1a9; --rule:#2b3138;
+    --navy:#6fa9dd; --navy-hover:#8dbce6; --tag-bg:#22323f; --teal:#5fbfa6; --teal-rule:#24403a; --btn-ink:#10161c;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#12161a; --panel:#1a1f24;
-  --ink:#e9edf0; --ink-2:#a9b3ba; --ink-3:#78848c;
-  --rule:#2c333a; --rule-2:#232a30;
-  --accent:#4f9fe0;
-}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55}
-.wrap{max-width:720px;margin:0 auto;padding:clamp(36px,8vw,88px) 20px 72px}
-h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,5vw,44px);line-height:1.12;letter-spacing:-.015em;margin:0 0 12px}
-.standfirst{font-family:var(--serif);font-size:18px;line-height:1.6;color:var(--ink-2);margin:0 0 4px;max-width:52ch}
-.rule{height:1px;background:var(--rule);margin:36px 0 8px}
-h2{font-size:12.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 18px}
-.demo{display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:22px 24px;margin-bottom:14px;transition:border-color .15s ease,transform .15s ease}
-.demo:hover{border-color:var(--accent);transform:translateY(-1px)}
-.demo:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.demo h3{font-family:var(--serif);font-size:22px;font-weight:600;margin:0 0 6px;line-height:1.25}
-.demo p{font-family:var(--serif);font-size:16.5px;line-height:1.55;color:var(--ink-2);margin:0 0 14px;max-width:50ch}
-.tags{display:flex;flex-wrap:wrap;gap:8px}
-.tag{font-size:12px;color:var(--ink-3);border:1px solid var(--rule-2);border-radius:20px;padding:3px 10px}
-.arrow{color:var(--accent);font-size:14px;font-weight:500;margin-top:14px;display:inline-block}
-footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--ink-3)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.td-demos{max-width:46rem;margin:0 auto;padding:3rem 1.25rem 4rem}
+.td-demos h1{font-size:2rem;line-height:1.2;margin:0 0 .4rem;color:var(--navy)}
+.td-demos .td-intro{margin:0 0 1.4rem;color:var(--muted);font-size:1rem}
+.td-demos h3{font-size:1.15rem;font-weight:700;color:var(--teal);margin:1.9rem 0 .7rem;padding-bottom:.3rem;border-bottom:2px solid var(--teal-rule)}
+.td-demos .td-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem}
+@media(max-width:600px){.td-demos .td-grid{grid-template-columns:1fr}}
+.td-demos .td-card{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:10px;padding:1rem 1.1rem;background:var(--panel)}
+.td-demos .td-card h4{font-size:1.05rem;margin:0 0 .4rem;color:var(--ink)}
+.td-demos .td-card p{font-size:.9rem;margin:0 0 .9rem;color:var(--ink-2);flex:1}
+.td-demos .td-card a{align-self:flex-start;font-size:.88rem;font-weight:600;color:var(--btn-ink);background:var(--navy);text-decoration:none;border-radius:6px;padding:.4rem .85rem}
+.td-demos .td-card a:hover{background:var(--navy-hover)}
+.td-demos .td-card a:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
+.td-demos .td-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin:0 0 .55rem}
+.td-demos .td-tag{font-size:.74rem;font-weight:700;letter-spacing:.02em;color:var(--navy);background:var(--tag-bg);border-radius:999px;padding:.12rem .55rem}
+.td-demos .td-k{font-weight:600;color:var(--navy)}
+footer{margin-top:2.6rem;padding-top:1rem;border-top:1px solid var(--rule);font-size:.85rem;color:var(--muted)}
 footer a{color:var(--ink-2)}
 </style>
 </head>
 <body>
-<div class="wrap">
+<main class="td-demos">
+  <h1>Interactive Teaching Demos</h1>
+  <p class="td-intro">Short, hands-on demos for machine learning that run entirely in the browser &mdash; nothing to install, nothing uploaded, nothing stored.</p>
 
-  <h1>Teaching demos</h1>
-  <p class="standfirst">Small interactive explainers for machine learning evaluation. Each one runs entirely in the browser — nothing is uploaded, nothing is stored.</p>
-
-  <div class="rule"></div>
-  <h2>Demos</h2>
-
-  <a class="demo" href="roc/">
-    <h3>Where the threshold goes</h3>
-    <p>Drag a decision threshold across two score distributions and watch the confusion matrix, the ROC curve and the precision–recall curve respond. Built to show why the two curves disagree under class imbalance.</p>
-    <div class="tags">
-      <span class="tag">binary classification</span>
-      <span class="tag">ROC-AUC</span>
-      <span class="tag">average precision</span>
+  <h3>Classifier Evaluation</h3>
+  <div class="td-grid">
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">ROC curve</span><span class="td-tag">Precision&ndash;recall</span><span class="td-tag">AUC</span></div>
+      <h4>Where the Threshold Goes</h4>
+      <p>Move a classifier's <span class="td-k">decision threshold</span> and watch the <span class="td-k">confusion matrix</span>, <span class="td-k">ROC curve</span> and <span class="td-k">precision&ndash;recall curve</span> respond. Shows why <span class="td-k">ROC-AUC</span> and <span class="td-k">PR-AUC</span> disagree when positives are rare, and what neither can see: <span class="td-k">calibration</span>.</p>
+      <a href="roc/">Open demo &rarr;</a>
     </div>
-    <span class="arrow">Open the demo →</span>
-  </a>
+  </div>
+
+  <h3>Principal Component Analysis (PCA)</h3>
+  <div class="td-grid">
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">PCA</span><span class="td-tag">Variance</span><span class="td-tag">Reconstruction error</span></div>
+      <h4>Where the Principal Direction Goes</h4>
+      <p>Rotate a line through a cloud of points and watch its spread split into what the <span class="td-k">projection</span> keeps and what it throws away. The best direction keeps the most <span class="td-k">variance</span> and loses the least: the <span class="td-k">first principal component</span>.</p>
+      <a href="pca1/">Open demo &rarr;</a>
+    </div>
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">PCA</span><span class="td-tag">Eigenvalues</span><span class="td-tag">Dimensionality reduction</span></div>
+      <h4>How Many Components Is Enough?</h4>
+      <p>Rebuild handwritten-digit images from a few <span class="td-k">principal components</span>, see what survives and where the missing part goes, and use the <span class="td-k">eigenvalue spectrum</span> to decide how many components to keep.</p>
+      <a href="pca2/">Open demo &rarr;</a>
+    </div>
+  </div>
+
+  <h3>Support Vector Machines (SVM)</h3>
+  <div class="td-grid">
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">SVM</span><span class="td-tag">Margin</span><span class="td-tag">Support vectors</span></div>
+      <h4>Why This Line?</h4>
+      <p>Try to separate two classes with the widest possible street, then let the <span class="td-k">SVM</span> find the <span class="td-k">maximum margin</span>. Drag points to see that only the <span class="td-k">support vectors</span> move the boundary, and turn <span class="td-k">C</span> to trade margin width against violations (<span class="td-k">soft margin</span>).</p>
+      <a href="svm1/">Open demo &rarr;</a>
+    </div>
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">SVM</span><span class="td-tag">Kernels</span><span class="td-tag">Overfitting</span></div>
+      <h4>Bumps and Boundaries</h4>
+      <p>Fit SVMs with <span class="td-k">linear</span>, <span class="td-k">polynomial</span> and <span class="td-k">Gaussian (RBF) kernels</span> to curved data, and sweep <span class="td-k">C</span> and <span class="td-k">&gamma;</span> from too smooth to too wiggly while comparing <span class="td-k">training and test accuracy</span>. A 3-D view shows the <span class="td-k">kernel trick</span>: a curved boundary becoming a flat plane.</p>
+      <a href="svm2/">Open demo &rarr;</a>
+    </div>
+  </div>
 
   <footer>
+    By <a href="https://subrahmanyamgorthi.weebly.com/">Subrahmanyam Gorthi</a>, IIT Tirupati.
     Source on <a href="https://github.com/gorthiittp/teaching-demos">GitHub</a>. Free to reuse and adapt for teaching.
   </footer>
-
-</div>
+</main>
 </body>
 </html>
