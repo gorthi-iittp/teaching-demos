@@ -175,13 +175,14 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
       <span>step <b id="vT">0</b></span>
       <span>misclassified <b id="vE">—</b></span>
       <span>&#8214;w&#8214; <b id="vW">—</b></span>
+      <span>margin <b id="vM">—</b></span>
     </div>
-    <p class="hint">Drag a point to move it; tap a point to flip its label.</p>
+    <p class="hint">Drag a point to move it; tap a point to flip its label. While paused, drag across the plot to draw a starting line, or drag its handles to adjust it.</p>
 
     <div class="controls">
       <div class="ctl">
         <label for="gap">Gap between the classes</label>
-        <input type="range" id="gap" min="0" max="5" step="0.1" value="3">
+        <input type="range" id="gap" min="0" max="6" step="0.1" value="3">
         <span class="val" id="gapV">3.0</span>
       </div>
       <div class="btnrow">
@@ -202,12 +203,16 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
     <h2>The take-home message</h2>
     <p>The boundary is decided by all the points together. Points on the wrong side or close to the line pull hard; points deep on their own side pull very little, but never exactly nothing.</p>
 
+    <h2>A limitation</h2>
+    <p>When the two classes can be separated by a line, logistic regression has no single answer. Every separating line can push the loss toward zero just by growing &#8214;w&#8214;, and once every point is on its correct side, all the pulls are close to zero. Nothing then pushes the line toward the middle of the gap, so where it ends up depends on where training started and when it stopped. The <em>margin</em> readout, the distance from the line to the nearest point, makes the difference visible.</p>
+
     <h2>Things to try</h2>
     <ul>
       <li>The page opens at w = 0, where every point has p&#770; = 0.5 and an equal halo. Click <em>One step</em> a few times and watch the line appear and turn as the halos shrink. <em>Train from scratch</em> returns to w = 0.</li>
       <li>Drag a point deep into its own class&rsquo;s territory. Its halo and its stick almost vanish, and the line barely moves. Drag it across the line and it pulls the whole line toward it.</li>
       <li>Flip the label of a point far from the boundary. One confident mistake shifts and tilts the line, and the bands spread out.</li>
-      <li>Raise the gap until the classes separate. The bands keep squeezing toward the boundary, &#8214;w&#8214; keeps growing and the S-curve on the right steepens toward a step: with nothing left to get wrong, the model only grows more confident.</li>
+      <li>Raise the gap until the classes separate and the margin readout shows a number after training. Note the margin, then pause, draw a starting line that separates the classes but runs close to one of them, and run. The line stays near where you drew it, with a much smaller margin. Press <em>Train from scratch</em> and run again: the same data, a different line.</li>
+      <li>On separable data, also watch the bands: they keep squeezing toward the boundary, &#8214;w&#8214; keeps growing and the S-curve on the right steepens toward a step: with nothing left to get wrong, the model only grows more confident.</li>
     </ul>
   </div>
 
@@ -328,12 +333,16 @@ function render(){
     else el("rect", { x:sx(q.x)-4.8, y:sy(q.y)-4.8, width:9.6, height:9.6, fill:cN, stroke:cPan, "stroke-width":1 }, svg);
   });
   el("rect", { x:S.m, y:S.m, width:S.W-2*S.m, height:S.H-2*S.m, fill:"none", stroke:cR }, svg);
+  if(!running){ var hh = handles(); if(hh) hh.forEach(function(h){ el("circle", { cx:sx(h[0]), cy:sy(h[1]), r:7, fill:cPan, stroke:cI, "stroke-width":2 }, svg); }); }
 
   renderProj();
   var err = 0; pts.forEach(function(q){ if((score(q.x, q.y) >= 0 ? 1 : 0) !== q.c) err++; });
   $("vT").textContent = t.toLocaleString("en-US");
   $("vE").textContent = err + " of " + pts.length;
   $("vW").textContent = Math.hypot(w[0], w[1]).toFixed(2);
+  var nw = Math.hypot(w[0], w[1]), mg = Infinity;
+  if(nw > 1e-6 && !err) pts.forEach(function(q){ mg = Math.min(mg, (2*q.c - 1)*score(q.x, q.y)/nw); });
+  $("vM").textContent = isFinite(mg) ? mg.toFixed(2) : "\u2014";
   $("runBtn").textContent = running ? "Pause" : "Run";
 }
 
@@ -388,23 +397,53 @@ function frame(){
 }
 
 // ---------- editing ----------
+var START_NORM = 10;   // a confident start: the effect needs a large ||w||
 var drag = null;
 function svgPt(e){ var q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; return q.matrixTransform(svg.getScreenCTM().inverse()); }
+function handles(){
+  if(Math.hypot(w[0], w[1]) < 1e-6) return null;
+  var seg = levelSegment(0); if(!seg) return null;
+  var f = function(t){ return [seg[0][0] + t*(seg[1][0]-seg[0][0]), seg[0][1] + t*(seg[1][1]-seg[0][1])]; };
+  return [f(0.15), f(0.85)];
+}
+function countErr(ww){ var e = 0; pts.forEach(function(q){ if((ww[0]*q.x + ww[1]*q.y + ww[2] >= 0 ? 1 : 0) !== q.c) e++; }); return e; }
+// set w to a line through A and B with ||w|| = START_NORM
+function setLine(A, B, refDir){
+  var dx = B[0]-A[0], dy = B[1]-A[1], L = Math.hypot(dx, dy); if(L < 0.05) return;
+  var n = [dy/L, -dx/L], c1 = [n[0]*START_NORM, n[1]*START_NORM, 0], c2 = [-c1[0], -c1[1], 0];
+  c1[2] = -(c1[0]*A[0] + c1[1]*A[1]); c2[2] = -c1[2];
+  var pick;
+  if(refDir) pick = (c1[0]*refDir[0] + c1[1]*refDir[1] >= 0) ? c1 : c2;
+  else pick = countErr(c1) <= countErr(c2) ? c1 : c2;
+  w = pick; t = 0; dirty = true;
+}
 svg.addEventListener("pointerdown", function(e){
-  var q = svgPt(e), best = -1, bd = 16;
-  pts.forEach(function(p, i){ var d = Math.hypot(sx(p.x) - q.x, sy(p.y) - q.y); if(d < bd){ bd = d; best = i; } });
-  if(best < 0) return;
-  drag = { i:best, x0:q.x, y0:q.y, moved:false }; svg.setPointerCapture(e.pointerId); e.preventDefault();
+  var q = svgPt(e), i;
+  if(!running){
+    var h = handles();
+    if(h) for(i = 0; i < 2; i++) if(Math.hypot(sx(h[i][0]) - q.x, sy(h[i][1]) - q.y) < 14){
+      drag = { kind:"handle", fixed:h[1-i], ref:[w[0], w[1]] };
+      svg.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    }
+  }
+  var best = -1, bd = 16;
+  pts.forEach(function(p, k){ var d = Math.hypot(sx(p.x) - q.x, sy(p.y) - q.y); if(d < bd){ bd = d; best = k; } });
+  if(best >= 0){ drag = { kind:"point", i:best, x0:q.x, y0:q.y, moved:false }; }
+  else if(!running){ drag = { kind:"draw", A:[ix(q.x), iy(q.y)], x0:q.x, y0:q.y }; }
+  else return;
+  svg.setPointerCapture(e.pointerId); e.preventDefault();
 });
 svg.addEventListener("pointermove", function(e){
   if(!drag) return;
-  var q = svgPt(e);
+  var q = svgPt(e), P = [clamp(ix(q.x)), clamp(iy(q.y))];
+  if(drag.kind === "handle"){ setLine(drag.fixed, P, drag.ref); return; }
+  if(drag.kind === "draw"){ if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 10) setLine(drag.A, P, null); return; }
   if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 4) drag.moved = true;
-  if(drag.moved){ pts[drag.i].x = clamp(ix(q.x)); pts[drag.i].y = clamp(iy(q.y)); dirty = true; }
+  if(drag.moved){ pts[drag.i].x = P[0]; pts[drag.i].y = P[1]; dirty = true; }
 });
 svg.addEventListener("pointerup", function(){
   if(!drag) return;
-  if(!drag.moved){ pts[drag.i].c = 1 - pts[drag.i].c; dirty = true; }
+  if(drag.kind === "point" && !drag.moved){ pts[drag.i].c = 1 - pts[drag.i].c; dirty = true; }
   drag = null;
 });
 svg.addEventListener("pointercancel", function(){ drag = null; });
@@ -412,7 +451,7 @@ svg.addEventListener("pointercancel", function(){ drag = null; });
 // ---------- controls ----------
 $("gap").addEventListener("input", function(){ gap = +this.value; $("gapV").textContent = gap.toFixed(1); });
 $("gap").addEventListener("change", function(){ generate(); dirty = true; });
-$("runBtn").addEventListener("click", function(){ running = !running; dirty = true; });
+$("runBtn").addEventListener("click", function(){ running = !running; drag = null; dirty = true; });
 $("stepBtn").addEventListener("click", function(){ running = false; step(); dirty = true; });
 $("restartBtn").addEventListener("click", function(){ running = false; w = [0,0,0]; t = 0; dirty = true; });
 $("resample").addEventListener("click", function(){ running = false; generate(); w = [0,0,0]; t = 0; dirty = true; });
