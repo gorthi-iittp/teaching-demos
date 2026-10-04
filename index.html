@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interactive Teaching Demos</title>
-<meta name="description" content="Short, hands-on machine learning demos that run in the browser: ROC curves, PCA and support vector machines.">
+<meta name="description" content="Short, hands-on machine learning demos that run in the browser: ROC curves, logistic regression, PCA and support vector machines.">
 <style>
 :root{
   --bg:#fbfbf9; --panel:#ffffff; --ink:#16191d; --ink-2:#3a4148; --muted:#555c63; --rule:#e2e5e9;
@@ -50,6 +50,16 @@ footer a{color:var(--ink-2)}
       <h4>Where the Threshold Goes</h4>
       <p>Move a classifier's <span class="td-k">decision threshold</span> and watch the <span class="td-k">confusion matrix</span>, <span class="td-k">ROC curve</span> and <span class="td-k">precision&ndash;recall curve</span> respond. Shows why <span class="td-k">ROC-AUC</span> and <span class="td-k">PR-AUC</span> disagree when positives are rare, and what neither can see: <span class="td-k">calibration</span>.</p>
       <a href="roc/">Open demo &rarr;</a>
+    </div>
+  </div>
+
+  <h3>Logistic Regression</h3>
+  <div class="td-grid">
+    <div class="td-card">
+      <div class="td-tags"><span class="td-tag">Logistic regression</span><span class="td-tag">Sigmoid</span><span class="td-tag">Gradient descent</span></div>
+      <h4>Where the Line Falls</h4>
+      <p>Train <span class="td-k">logistic regression</span> step by step and watch every point pull the <span class="td-k">decision boundary</span> in proportion to its error. A side view along <span class="td-k">w</span> shows the <span class="td-k">sigmoid</span> behind the probabilities, and on separable data the final line depends on where training started.</p>
+      <a href="logreg/">Open demo &rarr;</a>
     </div>
   </div>
 
