@@ -151,7 +151,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
     </div>
     <button class="themebtn" id="theme" type="button">Dark</button>
   </div>
-  <p class="lede">With two features, logistic regression draws a straight decision boundary and fades its probability away from it. The model keeps training as you work: drag the points and watch the line, and the probabilities along it, respond.</p>
+  <p class="lede">With two features, logistic regression draws a straight decision boundary and fades its probability away from it. Press Run, or step one iteration at a time; while it runs, drag the points and watch the line, and the probabilities along it, respond.</p>
 
   <div class="panel">
     <div class="stage duo">
@@ -185,7 +185,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
         <span class="val" id="gapV">3.0</span>
       </div>
       <div class="btnrow">
-        <button class="act" id="runBtn" type="button">Pause</button>
+        <button class="act" id="runBtn" type="button">Run</button>
         <button class="act" id="stepBtn" type="button">One step</button>
         <button class="act" id="restartBtn" type="button">Train from scratch</button>
         <button class="act" id="resample" type="button">Draw a new sample</button>
@@ -204,7 +204,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
 
     <h2>Things to try</h2>
     <ul>
-      <li>Press <em>Train from scratch</em>. At w = 0 every point has p&#770; = 0.5 and an equal halo; watch the line appear and turn as the halos shrink.</li>
+      <li>The page opens at w = 0, where every point has p&#770; = 0.5 and an equal halo. Click <em>One step</em> a few times and watch the line appear and turn as the halos shrink. <em>Train from scratch</em> returns to w = 0.</li>
       <li>Drag a point deep into its own class&rsquo;s territory. Its halo and its stick almost vanish, and the line barely moves. Drag it across the line and it pulls the whole line toward it.</li>
       <li>Flip the label of a point far from the boundary. One confident mistake shifts and tilts the line, and the bands spread out.</li>
       <li>Raise the gap until the classes separate. The bands keep squeezing toward the boundary, &#8214;w&#8214; keeps growing and the S-curve on the right steepens toward a step: with nothing left to get wrong, the model only grows more confident.</li>
@@ -212,7 +212,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
   </div>
 
   <footer>
-    Points are simulated from two Gaussian clouds. Batch gradient descent on the cross-entropy loss runs continuously in the page. Nothing is fetched or stored &mdash; refresh to reset.
+    Points are simulated from two Gaussian clouds. Batch gradient descent on the cross-entropy loss with learning rate 0.5. Nothing is fetched or stored &mdash; refresh to reset.
   </footer>
 </div>
 
@@ -227,7 +227,7 @@ function sig(z){ return z >= 0 ? 1/(1+Math.exp(-z)) : Math.exp(z)/(1+Math.exp(z)
 function randn(){ var u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
 
 var R = 4, N_PER = 15, ETA = 0.5, STEPS_PER_FRAME = 2;
-var pts = [], w = [0,0,0], t = 0, running = true, gap = 3;   // w = (w1, w2, w0)
+var pts = [], w = [0,0,0], t = 0, running = false, gap = 3;   // w = (w1, w2, w0)
 var DIR = [Math.cos(0.6), Math.sin(0.6)];
 
 function generate(){
@@ -414,8 +414,8 @@ $("gap").addEventListener("input", function(){ gap = +this.value; $("gapV").text
 $("gap").addEventListener("change", function(){ generate(); dirty = true; });
 $("runBtn").addEventListener("click", function(){ running = !running; dirty = true; });
 $("stepBtn").addEventListener("click", function(){ running = false; step(); dirty = true; });
-$("restartBtn").addEventListener("click", function(){ w = [0,0,0]; t = 0; dirty = true; });
-$("resample").addEventListener("click", function(){ generate(); w = [0,0,0]; t = 0; dirty = true; });
+$("restartBtn").addEventListener("click", function(){ running = false; w = [0,0,0]; t = 0; dirty = true; });
+$("resample").addEventListener("click", function(){ running = false; generate(); w = [0,0,0]; t = 0; dirty = true; });
 
 var root = document.documentElement;
 function setTheme(th){ root.setAttribute("data-theme", th); $("theme").textContent = th === "dark" ? "Light" : "Dark"; dirty = true; }
