@@ -168,7 +168,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
       <span><i class="sw pos"></i>y = 1</span>
       <span><i class="sw neg"></i>y = 0</span>
       <span><i class="sw bnd"></i>boundary, p&#770; = 0.5</span>
-      <span><i class="sw lvl"></i>p&#770; = 0.1, 0.25, 0.75, 0.9</span>
+      <span><i class="sw lvl"></i>p&#770; = 0.1 and 0.9</span>
       <span><i class="sw halo"></i>pull |p&#770; &minus; y|</span>
     </div>
     <div class="stats">
@@ -196,7 +196,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
 
   <div class="prose">
     <h2>What you are looking at</h2>
-    <p>The model is p&#770; = &sigma;(w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320;). Its boundary is where the linear score is zero, w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320; = 0, which is a straight line. Every other probability level is also a line where the score is constant, so the bands run parallel to the boundary. The weight vector w = (w&#8321;, w&#8322;) points across the bands, toward class 1, and its length sets how quickly p&#770; goes from 0.5 to near 0 or 1.</p>
+    <p>The model is p&#770; = &sigma;(w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320;). Its boundary is where the linear score is zero, w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320; = 0, which is a straight line. Every other probability level is also a line where the score is constant, so the dashed lines at p&#770; = 0.1 and 0.9 run parallel to the boundary. Point the mouse anywhere on the plot to read p&#770; there. The weight vector w = (w&#8321;, w&#8322;) points across the bands, toward class 1, and its length sets how quickly p&#770; goes from 0.5 to near 0 or 1.</p>
     <p>The red halo on each point is its pull on the next gradient step, |p&#770; &minus; y|.</p>
     <p>The right panel looks at the same model side-on. Measured along w, a point at distance d from the boundary has p&#770; = &sigma;(&#8214;w&#8214; d), so the two-feature model is the familiar one-dimensional S-curve laid across the plane. The bands on the left are slices of this one curve, and &#8214;w&#8214; sets how steep it is.</p>
 
@@ -296,13 +296,13 @@ function render(){
   el("rect", { x:S.m, y:S.m, width:S.W-2*S.m, height:S.H-2*S.m, fill:cPan }, svg);
 
   var hasW = Math.hypot(w[0], w[1]) > 1e-6;
-  var P = [0.1, 0.25, 0.5, 0.75, 0.9], L = P.map(function(p){ return Math.log(p/(1-p)); });
+  var P = [0.1, 0.5, 0.9], L = P.map(function(p){ return Math.log(p/(1-p)); });
   if(hasW){
     var edges = [-Infinity].concat(L, [Infinity]);
-    var alpha = [0.30, 0.20, 0.10, 0.10, 0.20, 0.30];
-    for(var k = 0; k < 6; k++){
+    var alpha = [0.30, 0.12, 0.12, 0.30];
+    for(var k = 0; k < 4; k++){
       var poly = band(edges[k], edges[k+1]);
-      if(poly.length >= 3) el("polygon", { points:polyAttr(poly), fill:k < 3 ? cN : cP, "fill-opacity":alpha[k]*(dark ? 0.9 : 0.7) }, svg);
+      if(poly.length >= 3) el("polygon", { points:polyAttr(poly), fill:k < 2 ? cN : cP, "fill-opacity":alpha[k]*(dark ? 0.9 : 0.7) }, svg);
     }
   }
   [-3,-2,-1,0,1,2,3].forEach(function(v){
@@ -319,8 +319,18 @@ function render(){
       var seg = levelSegment(L[k]); if(!seg) return;
       var mid = p === 0.5;
       el("line", { x1:sx(seg[0][0]), y1:sy(seg[0][1]), x2:sx(seg[1][0]), y2:sy(seg[1][1]),
-                   stroke:mid ? cI : cM, "stroke-width":mid ? 2.2 : 1, "stroke-dasharray":mid ? "" : "4 4" }, svg);
-
+                   stroke:mid ? cI : cM, "stroke-width":mid ? 2.2 : 1.1, "stroke-dasharray":mid ? "" : "5 4" }, svg);
+    });
+    // label the 0.1 and 0.9 lines, unless they have squeezed too close to the boundary
+    var nw = Math.hypot(w[0], w[1]), gapPx = L[2]/nw*(S.W - 2*S.m)/(2*R);
+    if(gapPx > 26) [0, 2].forEach(function(k){
+      var seg = levelSegment(L[k]); if(!seg) return;
+      var top = sy(seg[0][1]) < sy(seg[1][1]) ? 0 : 1, a = seg[top], b = seg[1-top], f = 0.1;
+      var lx = sx(a[0] + f*(b[0]-a[0])), ly = sy(a[1] + f*(b[1]-a[1]));
+      var ox = (k === 0 ? -1 : 1)*w[0]/nw, oy = -(k === 0 ? -1 : 1)*w[1]/nw;   // push the label outward, away from the boundary
+      var tx = el("text", { x:lx + 14*ox, y:ly + 14*oy + 4, "text-anchor":"middle", "font-size":13, fill:cI, "font-weight":600,
+                            stroke:cPan, "stroke-width":3, "paint-order":"stroke" }, svg);
+      tx.textContent = "p\u0302 = " + P[k];
     });
   }
   // halos then points
@@ -333,6 +343,13 @@ function render(){
     else el("rect", { x:sx(q.x)-4.8, y:sy(q.y)-4.8, width:9.6, height:9.6, fill:cN, stroke:cPan, "stroke-width":1 }, svg);
   });
   el("rect", { x:S.m, y:S.m, width:S.W-2*S.m, height:S.H-2*S.m, fill:"none", stroke:cR }, svg);
+  if(hover){
+    var hp = sig(score(hover[0], hover[1])), hx = sx(hover[0]), hy = sy(hover[1]);
+    var right = hx > S.W - 120, up = hy < S.m + 30;
+    var ht = el("text", { x:hx + (right ? -12 : 12), y:hy + (up ? 24 : -12), "text-anchor":right ? "end" : "start", "font-size":14, fill:cI, "font-weight":600,
+                          stroke:cPan, "stroke-width":4, "paint-order":"stroke" }, svg);
+    ht.textContent = "p\u0302 = " + hp.toFixed(2);
+  }
   if(!running){ var hh = handles(); if(hh) hh.forEach(function(h){ el("circle", { cx:sx(h[0]), cy:sy(h[1]), r:7, fill:cPan, stroke:cI, "stroke-width":2 }, svg); }); }
 
   renderProj();
@@ -449,9 +466,14 @@ svg.addEventListener("pointermove", function(e){
   if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 4) drag.moved = true;
   if(drag.moved){ pts[drag.i].x = P[0]; pts[drag.i].y = P[1]; dirty = true; }
 });
+var hover = null;
+svg.addEventListener("pointerleave", function(){ hover = null; dirty = true; });
 svg.addEventListener("pointermove", function(e){
+  var q0 = svgPt(e), hxv = ix(q0.x), hyv = iy(q0.y);
+  var inside = Math.abs(hxv) <= R && Math.abs(hyv) <= R && e.pointerType === "mouse";
+  hover = inside && !(drag && drag.kind !== "point") ? [hxv, hyv] : null; dirty = true;
   if(drag) return;
-  var q = svgPt(e), c = "crosshair";
+  var q = q0, c = "crosshair";
   if(!running){
     var h = handles();
     if(h && h.some(function(p){ return Math.hypot(sx(p[0]) - q.x, sy(p[1]) - q.y) < 14; })) c = "pointer";
