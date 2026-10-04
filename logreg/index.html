@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logistic Regression &middot; Where the line falls</title>
+<style>
+:root{
+  --paper:#fbfbf9; --panel:#ffffff; --ink:#16191d; --muted:#6a7078;
+  --rule:#e2e5e9; --grid:#eef1f4;
+  --keep:#1b4570; --keep-soft:#d9e3ef;
+  --lose:#a83246; --lose-soft:#f2dcdf;
+  --pos:#1b4570; --neg:#b0781a;
+  --dot:#33424f;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, "Source Serif Pro", Georgia, serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html[data-theme="dark"]{
+  --paper:#14171a; --panel:#1b1f23; --ink:#e7e9ea; --muted:#99a1a9;
+  --rule:#2b3138; --grid:#232a30;
+  --keep:#6fa9dd; --keep-soft:#22323f;
+  --lose:#e0808c; --lose-soft:#3a262a;
+  --pos:#6fa9dd; --neg:#e2b25a;
+  --dot:#b9c4cd;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:1rem}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.62;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:60rem; margin:0 auto; padding:2.6rem 1.25rem 5rem}
+.prose{max-width:36rem}
+
+h1{font-size:2.05rem; line-height:1.18; font-weight:600; letter-spacing:-.012em; margin:0 0 .5rem}
+h2{font-size:1.28rem; font-weight:600; margin:2.9rem 0 .6rem; letter-spacing:-.006em}
+p{margin:0 0 1rem}
+.lede{font-size:1.09rem; color:var(--muted); max-width:34rem; margin-bottom:2rem}
+
+.topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:1rem}
+.themebtn{
+  font-family:var(--sans); font-size:.78rem; color:var(--muted);
+  background:none; border:1px solid var(--rule); border-radius:999px;
+  padding:.3rem .8rem; cursor:pointer; white-space:nowrap;
+}
+.themebtn:hover{color:var(--ink); border-color:var(--muted)}
+
+/* ---------- panel ---------- */
+.panel{
+  background:var(--panel); border:1px solid var(--rule); border-radius:10px;
+  padding:1.1rem; margin:0 0 1.1rem;
+}
+.stage{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:1.4rem; align-items:start}
+@media(max-width:760px){ .stage{grid-template-columns:1fr; gap:1.1rem} }
+
+svg{display:block; width:100%; height:auto; touch-action:none; -webkit-user-select:none; user-select:none}
+#scatter text,#profile text{font-family:var(--sans)}
+#scatter{cursor:grab}
+#scatter.dragging{cursor:grabbing}
+
+.readout{font-family:var(--sans)}
+.bigrow{display:flex; align-items:baseline; gap:.5rem; margin-bottom:.15rem}
+.bignum{font-size:2.5rem; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1}
+.biglab{font-size:.85rem; color:var(--muted)}
+.sub{font-size:.82rem; color:var(--muted); margin-bottom:1.05rem; min-height:2.5em}
+
+.svmhead{font-size:.8rem; color:var(--muted); margin:1rem 0 .4rem; padding-top:.8rem; border-top:1px dotted var(--rule)}
+.svmhead b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+.barwrap{margin:0 0 .5rem}
+.bar{display:flex; height:2.2rem; border-radius:4px; overflow:hidden; background:var(--grid)}
+.bar .seg{flex:0 0 auto; transition:none}
+.seg.keep{background:var(--keep)}
+.seg.lose{background:var(--lose)}
+.barkey{display:flex; justify-content:space-between; font-family:var(--sans); font-size:.78rem; margin-top:.4rem; gap:.75rem}
+.barkey b{font-weight:600; font-variant-numeric:tabular-nums}
+.k-keep{color:var(--keep)} .k-lose{color:var(--lose)}
+.total{font-family:var(--sans); font-size:.78rem; color:var(--muted); margin-top:.55rem; padding-top:.5rem; border-top:1px dotted var(--rule); display:flex; justify-content:space-between}
+.total b{font-variant-numeric:tabular-nums; color:var(--ink); font-weight:600}
+.nosol{font-size:.8rem; color:var(--lose); margin:.2rem 0 .5rem}
+
+table.mat{font-family:var(--sans); font-size:.8rem; border-collapse:collapse; margin-top:.9rem; font-variant-numeric:tabular-nums}
+table.mat td{padding:.12rem .55rem .12rem 0; color:var(--muted)}
+table.mat td.v{color:var(--ink); text-align:right; padding-right:.9rem}
+
+/* ---------- controls ---------- */
+.controls{border-top:1px solid var(--rule); margin-top:1.1rem; padding-top:1rem; font-family:var(--sans)}
+.ctl{display:grid; grid-template-columns:11rem 1fr 3.6rem; gap:.75rem; align-items:center; margin-bottom:.55rem; font-size:.84rem}
+.ctl label{color:var(--muted)}
+.ctl .val{text-align:right; font-variant-numeric:tabular-nums; font-size:.8rem; color:var(--ink)}
+@media(max-width:520px){ .ctl{grid-template-columns:8.5rem 1fr 3.2rem; font-size:.8rem} }
+
+input[type=range]{width:100%; accent-color:var(--keep); height:1.15rem; background:transparent}
+input[type=range]:focus-visible{outline:2px solid var(--keep); outline-offset:3px; border-radius:3px}
+
+.btnrow{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.9rem}
+button.act{
+  font-family:var(--sans); font-size:.8rem; color:var(--ink); background:var(--panel);
+  border:1px solid var(--rule); border-radius:6px; padding:.36rem .7rem; cursor:pointer;
+}
+button.act:hover{border-color:var(--muted)}
+button.act:focus-visible{outline:2px solid var(--keep); outline-offset:2px}
+button.act.on{background:var(--keep-soft); border-color:var(--keep); color:var(--ink)}
+button.act:disabled{opacity:.45; cursor:default}
+.presets{margin-top:.8rem; padding-top:.8rem; border-top:1px dotted var(--rule)}
+.presets .plab{font-family:var(--sans); font-size:.76rem; color:var(--muted); margin-bottom:.4rem}
+
+.hint{font-family:var(--sans); font-size:.78rem; color:var(--muted); margin:.55rem 0 0}
+.legend{font-family:var(--sans); font-size:.76rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:.9rem; margin-top:.35rem}
+.legend span{display:inline-flex; align-items:center; gap:.35rem}
+.sw{display:inline-block; width:.62rem; height:.62rem}
+.sw.pos{background:var(--pos); border-radius:50%}
+.sw.neg{background:var(--neg)}
+.sw.ring{border:1.5px solid var(--ink); border-radius:50%; width:.8rem; height:.8rem}
+.sw.slack{width:1rem; height:2px; background:var(--lose)}
+
+/* ---------- prose extras ---------- */
+ul{margin:0 0 1rem; padding-left:1.15rem}
+li{margin-bottom:.45rem}
+.eq{font-family:var(--sans); font-size:.92rem; background:var(--grid); border-radius:6px; padding:.7rem .85rem; margin:0 0 1rem; overflow-x:auto; white-space:nowrap}
+.keepword{color:var(--keep); font-weight:600}
+.loseword{color:var(--lose); font-weight:600}
+footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); font-family:var(--sans); font-size:.8rem; color:var(--muted)}
+@media(prefers-reduced-motion:reduce){ *{scroll-behavior:auto} }
+.kicker{font-family:var(--sans); font-size:.78rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--keep); margin:0 0 .4rem}
+#plot text{font-family:var(--sans)}
+#plot{cursor:crosshair}
+#proj text{font-family:var(--sans)}
+.stats{font-family:var(--sans); font-size:.86rem; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem 1.6rem; margin-top:.6rem; font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink); font-weight:600}
+.legend{justify-content:center}
+.hint{text-align:center}
+.sw.halo{width:.9rem; height:.9rem; border-radius:50%; border:1.5px solid var(--lose); background:var(--lose-soft)}
+.sw.bnd{width:1rem; height:2px; background:var(--ink)}
+.sw.lvl{width:1rem; height:0; border-top:1px dashed var(--muted)}
+.ctl{grid-template-columns:11rem 1fr 3.6rem}
+@media(max-width:520px){ .ctl{grid-template-columns:8.5rem 1fr 3.2rem} }
+.duo{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); align-items:center}
+.sidehead{font-family:var(--sans); font-size:.86rem; font-weight:600; margin:0 0 .3rem}
+.sidecap{font-family:var(--sans); font-size:.76rem; color:var(--muted); margin:.3rem 0 0}
+@media(max-width:760px){ .duo{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <p class="kicker">Logistic Regression &middot; in two dimensions</p>
+      <h1>Where the line falls</h1>
+    </div>
+    <button class="themebtn" id="theme" type="button">Dark</button>
+  </div>
+  <p class="lede">With two features, logistic regression draws a straight decision boundary and fades its probability away from it. The model keeps training as you work: drag the points and watch the line, and the probabilities along it, respond.</p>
+
+  <div class="panel">
+    <div class="stage duo">
+      <div>
+        <svg id="plot" viewBox="0 0 600 600" role="img" aria-label="Two classes of points, the logistic regression boundary and its probability bands"></svg>
+      </div>
+      <div class="side">
+        <p class="sidehead">The same points, seen along w</p>
+        <svg id="proj" viewBox="0 0 420 300" role="img" aria-label="Predicted probability against signed distance from the boundary, with the pull of each point"></svg>
+        <p class="sidecap">Each point placed by its distance from the boundary, measured along w, at height 0 or 1 by its label. The curve is p&#770;; the red stick is the pull p&#770; &minus; y.</p>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw pos"></i>y = 1</span>
+      <span><i class="sw neg"></i>y = 0</span>
+      <span><i class="sw bnd"></i>boundary, p&#770; = 0.5</span>
+      <span><i class="sw lvl"></i>p&#770; = 0.1, 0.25, 0.75, 0.9</span>
+      <span><i class="sw halo"></i>pull |p&#770; &minus; y|</span>
+    </div>
+    <div class="stats">
+      <span>step <b id="vT">0</b></span>
+      <span>misclassified <b id="vE">—</b></span>
+      <span>&#8214;w&#8214; <b id="vW">—</b></span>
+    </div>
+    <p class="hint">Drag a point to move it; tap a point to flip its label.</p>
+
+    <div class="controls">
+      <div class="ctl">
+        <label for="gap">Gap between the classes</label>
+        <input type="range" id="gap" min="0" max="5" step="0.1" value="3">
+        <span class="val" id="gapV">3.0</span>
+      </div>
+      <div class="btnrow">
+        <button class="act" id="runBtn" type="button">Pause</button>
+        <button class="act" id="restartBtn" type="button">Train from scratch</button>
+        <button class="act" id="resample" type="button">Draw a new sample</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="prose">
+    <h2>What you are looking at</h2>
+    <p>The model is p&#770; = &sigma;(w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320;). Its boundary is where the linear score is zero, w&#8321;x&#8321; + w&#8322;x&#8322; + w&#8320; = 0, which is a straight line. Every other probability level is also a line where the score is constant, so the bands run parallel to the boundary. The weight vector w = (w&#8321;, w&#8322;) points across the bands, toward class 1, and its length sets how quickly p&#770; goes from 0.5 to near 0 or 1.</p>
+    <p>The red halo on each point is its pull on the next gradient step, |p&#770; &minus; y|.</p>
+    <p>The right panel looks at the same model side-on. Measured along w, a point at distance d from the boundary has p&#770; = &sigma;(&#8214;w&#8214; d), so the two-feature model is the familiar one-dimensional S-curve laid across the plane. The bands on the left are slices of this one curve, and &#8214;w&#8214; sets how steep it is.</p>
+
+    <h2>The take-home message</h2>
+    <p>The boundary is decided by all the points together. Points on the wrong side or close to the line pull hard; points deep on their own side pull very little, but never exactly nothing.</p>
+
+    <h2>Things to try</h2>
+    <ul>
+      <li>Press <em>Train from scratch</em>. At w = 0 every point has p&#770; = 0.5 and an equal halo; watch the line appear and turn as the halos shrink.</li>
+      <li>Drag a point deep into its own class&rsquo;s territory. Its halo and its stick almost vanish, and the line barely moves. Drag it across the line and it pulls the whole line toward it.</li>
+      <li>Flip the label of a point far from the boundary. One confident mistake shifts and tilts the line, and the bands spread out.</li>
+      <li>Raise the gap until the classes separate. The bands keep squeezing toward the boundary, &#8214;w&#8214; keeps growing and the S-curve on the right steepens toward a step: with nothing left to get wrong, the model only grows more confident.</li>
+    </ul>
+  </div>
+
+  <footer>
+    Points are simulated from two Gaussian clouds. Batch gradient descent on the cross-entropy loss runs continuously in the page. Nothing is fetched or stored &mdash; refresh to reset.
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var NS = "http://www.w3.org/2000/svg";
+function el(tag, a, p){ var e = document.createElementNS(NS, tag); for(var k in a) e.setAttribute(k, a[k]); if(p) p.appendChild(e); return e; }
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function sig(z){ return z >= 0 ? 1/(1+Math.exp(-z)) : Math.exp(z)/(1+Math.exp(z)); }
+function randn(){ var u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+var R = 4, N_PER = 15, ETA = 0.5, STEPS_PER_FRAME = 2;
+var pts = [], w = [0,0,0], t = 0, running = true, gap = 3;   // w = (w1, w2, w0)
+var DIR = [Math.cos(0.6), Math.sin(0.6)];
+
+function generate(){
+  pts = [];
+  for(var i = 0; i < N_PER; i++){
+    pts.push({ x:clamp(-gap/2*DIR[0] + randn()), y:clamp(-gap/2*DIR[1] + randn()), c:0 });
+    pts.push({ x:clamp( gap/2*DIR[0] + randn()), y:clamp( gap/2*DIR[1] + randn()), c:1 });
+  }
+}
+function clamp(v){ return Math.max(-R + 0.2, Math.min(R - 0.2, v)); }
+function score(x, y){ return w[0]*x + w[1]*y + w[2]; }
+function step(){
+  var g = [0,0,0], n = pts.length; if(!n) return;
+  pts.forEach(function(q){ var r = sig(score(q.x, q.y)) - q.c; g[0] += r*q.x; g[1] += r*q.y; g[2] += r; });
+  for(var k = 0; k < 3; k++) w[k] -= ETA*g[k]/n;
+  t++;
+}
+
+// ---------- geometry ----------
+var S = { W:600, H:600, m:28 };
+function sx(x){ return S.m + (x + R)/(2*R)*(S.W - 2*S.m); }
+function sy(y){ return S.H - S.m - (y + R)/(2*R)*(S.H - 2*S.m); }
+function ix(px){ return (px - S.m)/(S.W - 2*S.m)*2*R - R; }
+function iy(py){ return (S.H - S.m - py)/(S.H - 2*S.m)*2*R - R; }
+
+// clip a polygon to the half-plane sign*(score - level) >= 0
+function clipHalf(poly, level, sign){
+  var out = [], i;
+  for(i = 0; i < poly.length; i++){
+    var a = poly[i], b = poly[(i+1) % poly.length];
+    var fa = sign*(score(a[0], a[1]) - level), fb = sign*(score(b[0], b[1]) - level);
+    if(fa >= 0) out.push(a);
+    if((fa >= 0) !== (fb >= 0)){ var tt = fa/(fa - fb); out.push([a[0] + tt*(b[0]-a[0]), a[1] + tt*(b[1]-a[1])]); }
+  }
+  return out;
+}
+function band(lo, hi){
+  var poly = [[-R,-R],[R,-R],[R,R],[-R,R]];
+  if(isFinite(lo)) poly = clipHalf(poly, lo, 1);
+  if(isFinite(hi) && poly.length) poly = clipHalf(poly, hi, -1);
+  return poly;
+}
+function polyAttr(poly){ return poly.map(function(q){ return sx(q[0]).toFixed(1) + "," + sy(q[1]).toFixed(1); }).join(" "); }
+// segment of the line score = level inside the square
+function levelSegment(level){
+  var c = [[-R,-R],[R,-R],[R,R],[-R,R]], hits = [], i;
+  for(i = 0; i < 4; i++){
+    var a = c[i], b = c[(i+1)%4], fa = score(a[0],a[1]) - level, fb = score(b[0],b[1]) - level;
+    if((fa >= 0) !== (fb >= 0)){ var tt = fa/(fa - fb); hits.push([a[0] + tt*(b[0]-a[0]), a[1] + tt*(b[1]-a[1])]); }
+  }
+  return hits.length >= 2 ? [hits[0], hits[1]] : null;
+}
+
+// ---------- render ----------
+var svg = $("plot");
+function render(){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  var cP = css("--pos"), cN = css("--neg"), cL = css("--lose"), cLs = css("--lose-soft"), cM = css("--muted"),
+      cR = css("--rule"), cG = css("--grid"), cI = css("--ink"), cPan = css("--panel");
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  el("rect", { x:S.m, y:S.m, width:S.W-2*S.m, height:S.H-2*S.m, fill:cPan }, svg);
+
+  var hasW = Math.hypot(w[0], w[1]) > 1e-6;
+  var P = [0.1, 0.25, 0.5, 0.75, 0.9], L = P.map(function(p){ return Math.log(p/(1-p)); });
+  if(hasW){
+    var edges = [-Infinity].concat(L, [Infinity]);
+    var alpha = [0.30, 0.20, 0.10, 0.10, 0.20, 0.30];
+    for(var k = 0; k < 6; k++){
+      var poly = band(edges[k], edges[k+1]);
+      if(poly.length >= 3) el("polygon", { points:polyAttr(poly), fill:k < 3 ? cN : cP, "fill-opacity":alpha[k]*(dark ? 0.9 : 0.7) }, svg);
+    }
+  }
+  [-3,-2,-1,0,1,2,3].forEach(function(v){
+    el("line", { x1:sx(v), x2:sx(v), y1:S.m, y2:S.H-S.m, stroke:cG, "stroke-opacity":0.7 }, svg);
+    el("line", { x1:S.m, x2:S.W-S.m, y1:sy(v), y2:sy(v), stroke:cG, "stroke-opacity":0.7 }, svg);
+    var a = el("text", { x:sx(v), y:S.H-S.m+19, "text-anchor":"middle", "font-size":14, fill:cM }, svg); a.textContent = String(v).replace("-", "\u2212");
+    var b = el("text", { x:S.m-6, y:sy(v)+5, "text-anchor":"end", "font-size":14, fill:cM }, svg); b.textContent = String(v).replace("-", "\u2212");
+  });
+  var xl = el("text", { x:S.W-S.m, y:S.H-4, "text-anchor":"end", "font-size":15, fill:cM }, svg); xl.textContent = "x\u2081";
+  var yl = el("text", { x:S.m, y:S.m-8, "text-anchor":"start", "font-size":15, fill:cM }, svg); yl.textContent = "x\u2082";
+
+  if(hasW){
+    P.forEach(function(p, k){
+      var seg = levelSegment(L[k]); if(!seg) return;
+      var mid = p === 0.5;
+      el("line", { x1:sx(seg[0][0]), y1:sy(seg[0][1]), x2:sx(seg[1][0]), y2:sy(seg[1][1]),
+                   stroke:mid ? cI : cM, "stroke-width":mid ? 2.2 : 1, "stroke-dasharray":mid ? "" : "4 4" }, svg);
+
+    });
+  }
+  // halos then points
+  pts.forEach(function(q){
+    var pull = Math.abs(sig(score(q.x, q.y)) - q.c);
+    if(pull > 0.03) el("circle", { cx:sx(q.x), cy:sy(q.y), r:5 + 17*pull, fill:cL, "fill-opacity":0.16, stroke:cL, "stroke-width":1.2, "stroke-opacity":0.8 }, svg);
+  });
+  pts.forEach(function(q){
+    if(q.c) el("circle", { cx:sx(q.x), cy:sy(q.y), r:5.2, fill:cP, stroke:cPan, "stroke-width":1 }, svg);
+    else el("rect", { x:sx(q.x)-4.8, y:sy(q.y)-4.8, width:9.6, height:9.6, fill:cN, stroke:cPan, "stroke-width":1 }, svg);
+  });
+  el("rect", { x:S.m, y:S.m, width:S.W-2*S.m, height:S.H-2*S.m, fill:"none", stroke:cR }, svg);
+
+  renderProj();
+  var err = 0; pts.forEach(function(q){ if((score(q.x, q.y) >= 0 ? 1 : 0) !== q.c) err++; });
+  $("vT").textContent = t.toLocaleString("en-US");
+  $("vE").textContent = err + " of " + pts.length;
+  $("vW").textContent = Math.hypot(w[0], w[1]).toFixed(2);
+  $("runBtn").textContent = running ? "Pause" : "Run";
+}
+
+// ---------- side view along w ----------
+var Q = { W:420, H:300, l:34, r:12, t:12, b:34, da:-4, db:4, ya:-0.2, yb:1.2 };
+function qx(d){ return Q.l + (d - Q.da)/(Q.db - Q.da)*(Q.W - Q.l - Q.r); }
+function qy(p){ return Q.t + (Q.yb - p)/(Q.yb - Q.ya)*(Q.H - Q.t - Q.b); }
+var proj = $("proj");
+function renderProj(){
+  while(proj.firstChild) proj.removeChild(proj.firstChild);
+  var cP = css("--pos"), cN = css("--neg"), cL = css("--lose"), cM = css("--muted"), cR = css("--rule"), cG = css("--grid"), cI = css("--ink");
+  var nw = Math.hypot(w[0], w[1]);
+  [-4,-2,0,2,4].forEach(function(v){
+    el("line", { x1:qx(v), x2:qx(v), y1:Q.t, y2:Q.H-Q.b, stroke:cG }, proj);
+    var tx = el("text", { x:qx(v), y:Q.H-Q.b+15, "text-anchor":"middle", "font-size":11, fill:cM }, proj); tx.textContent = String(v).replace("-", "\u2212");
+  });
+  [0, 0.5, 1].forEach(function(v){
+    el("line", { x1:Q.l, x2:Q.W-Q.r, y1:qy(v), y2:qy(v), stroke:cG }, proj);
+    var tx = el("text", { x:Q.l-5, y:qy(v)+4, "text-anchor":"end", "font-size":11, fill:cM }, proj); tx.textContent = String(v);
+  });
+  el("line", { x1:Q.l, x2:Q.W-Q.r, y1:Q.H-Q.b, y2:Q.H-Q.b, stroke:cR }, proj);
+  var xl = el("text", { x:Q.W-Q.r, y:Q.H-3, "text-anchor":"end", "font-size":11, fill:cM }, proj);
+  xl.textContent = "signed distance from the boundary, along w";
+  if(nw < 1e-6){
+    el("line", { x1:Q.l, x2:Q.W-Q.r, y1:qy(0.5), y2:qy(0.5), stroke:cP, "stroke-width":2.4 }, proj);
+    var m = el("text", { x:(Q.l+Q.W-Q.r)/2, y:qy(0.5)-10, "text-anchor":"middle", "font-size":12, fill:cM }, proj);
+    m.textContent = "w = 0: no direction yet, every p\u0302 = 0.5";
+    return;
+  }
+  el("line", { x1:qx(0), x2:qx(0), y1:Q.t, y2:Q.H-Q.b, stroke:cI, "stroke-width":1.3, "stroke-dasharray":"2 3" }, proj);
+  var d = "", i, x;
+  for(i = 0; i <= 200; i++){ x = Q.da + i/200*(Q.db - Q.da); d += (i ? "L" : "M") + qx(x).toFixed(1) + " " + qy(sig(nw*x)).toFixed(1); }
+  el("path", { d:d, fill:"none", stroke:cP, "stroke-width":2.4 }, proj);
+  var lim = 0.12;
+  pts.forEach(function(q){
+    var dist = score(q.x, q.y)/nw, p = sig(nw*dist), dd = Math.max(Q.da + lim, Math.min(Q.db - lim, dist));
+    if(Math.abs(p - q.c) > 3e-3) el("line", { x1:qx(dd), x2:qx(dd), y1:qy(q.c), y2:qy(p), stroke:cL, "stroke-width":2.4, "stroke-linecap":"round", opacity:0.75 }, proj);
+  });
+  pts.forEach(function(q){
+    var dist = score(q.x, q.y)/nw, dd = Math.max(Q.da + lim, Math.min(Q.db - lim, dist));
+    if(q.c) el("circle", { cx:qx(dd), cy:qy(1), r:4.2, fill:cP, "fill-opacity":0.85 }, proj);
+    else el("rect", { x:qx(dd)-3.8, y:qy(0)-3.8, width:7.6, height:7.6, fill:cN, "fill-opacity":0.85 }, proj);
+  });
+}
+
+// ---------- loop ----------
+var dirty = true;
+function frame(){
+  if(running) for(var i = 0; i < STEPS_PER_FRAME; i++) step();
+  if(running || dirty){ render(); dirty = false; }
+  requestAnimationFrame(frame);
+}
+
+// ---------- editing ----------
+var drag = null;
+function svgPt(e){ var q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; return q.matrixTransform(svg.getScreenCTM().inverse()); }
+svg.addEventListener("pointerdown", function(e){
+  var q = svgPt(e), best = -1, bd = 16;
+  pts.forEach(function(p, i){ var d = Math.hypot(sx(p.x) - q.x, sy(p.y) - q.y); if(d < bd){ bd = d; best = i; } });
+  if(best < 0) return;
+  drag = { i:best, x0:q.x, y0:q.y, moved:false }; svg.setPointerCapture(e.pointerId); e.preventDefault();
+});
+svg.addEventListener("pointermove", function(e){
+  if(!drag) return;
+  var q = svgPt(e);
+  if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 4) drag.moved = true;
+  if(drag.moved){ pts[drag.i].x = clamp(ix(q.x)); pts[drag.i].y = clamp(iy(q.y)); dirty = true; }
+});
+svg.addEventListener("pointerup", function(){
+  if(!drag) return;
+  if(!drag.moved){ pts[drag.i].c = 1 - pts[drag.i].c; dirty = true; }
+  drag = null;
+});
+svg.addEventListener("pointercancel", function(){ drag = null; });
+
+// ---------- controls ----------
+$("gap").addEventListener("input", function(){ gap = +this.value; $("gapV").textContent = gap.toFixed(1); });
+$("gap").addEventListener("change", function(){ generate(); dirty = true; });
+$("runBtn").addEventListener("click", function(){ running = !running; dirty = true; });
+$("restartBtn").addEventListener("click", function(){ w = [0,0,0]; t = 0; dirty = true; });
+$("resample").addEventListener("click", function(){ generate(); w = [0,0,0]; t = 0; dirty = true; });
+
+var root = document.documentElement;
+function setTheme(th){ root.setAttribute("data-theme", th); $("theme").textContent = th === "dark" ? "Light" : "Dark"; dirty = true; }
+$("theme").addEventListener("click", function(){ setTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark"); });
+
+generate();
+requestAnimationFrame(frame);
+setTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+})();
+</script>
+</body>
+</html>
