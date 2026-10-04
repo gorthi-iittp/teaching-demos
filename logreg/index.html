@@ -177,7 +177,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
       <span>&#8214;w&#8214; <b id="vW">—</b></span>
       <span>margin <b id="vM">—</b></span>
     </div>
-    <p class="hint">Drag a point to move it; tap a point to flip its label. While paused, drag across the plot to draw a starting line, or drag its handles to adjust it.</p>
+    <p class="hint">Drag a point to move it; tap a point to flip its label. While paused, drag across the plot to draw a starting line; drag the line itself to shift it without turning, or a handle to turn it.</p>
 
     <div class="controls">
       <div class="ctl">
@@ -406,6 +406,12 @@ function handles(){
   var f = function(t){ return [seg[0][0] + t*(seg[1][0]-seg[0][0]), seg[0][1] + t*(seg[1][1]-seg[0][1])]; };
   return [f(0.15), f(0.85)];
 }
+function nearLine(q){
+  var nw = Math.hypot(w[0], w[1]); if(nw < 1e-6) return false;
+  var x = ix(q.x), y = iy(q.y);
+  if(Math.abs(x) > R || Math.abs(y) > R) return false;
+  return Math.abs(score(x, y))/nw*(S.W - 2*S.m)/(2*R) < 10;
+}
 function countErr(ww){ var e = 0; pts.forEach(function(q){ if((ww[0]*q.x + ww[1]*q.y + ww[2] >= 0 ? 1 : 0) !== q.c) e++; }); return e; }
 // set w to a line through A and B with ||w|| = START_NORM
 function setLine(A, B, refDir){
@@ -429,6 +435,7 @@ svg.addEventListener("pointerdown", function(e){
   var best = -1, bd = 16;
   pts.forEach(function(p, k){ var d = Math.hypot(sx(p.x) - q.x, sy(p.y) - q.y); if(d < bd){ bd = d; best = k; } });
   if(best >= 0){ drag = { kind:"point", i:best, x0:q.x, y0:q.y, moved:false }; }
+  else if(!running && nearLine(q)){ drag = { kind:"shift", P0:[ix(q.x), iy(q.y)], b0:w[2] }; }
   else if(!running){ drag = { kind:"draw", A:[ix(q.x), iy(q.y)], x0:q.x, y0:q.y }; }
   else return;
   svg.setPointerCapture(e.pointerId); e.preventDefault();
@@ -437,9 +444,20 @@ svg.addEventListener("pointermove", function(e){
   if(!drag) return;
   var q = svgPt(e), P = [clamp(ix(q.x)), clamp(iy(q.y))];
   if(drag.kind === "handle"){ setLine(drag.fixed, P, drag.ref); return; }
+  if(drag.kind === "shift"){ w[2] = drag.b0 - (w[0]*(P[0] - drag.P0[0]) + w[1]*(P[1] - drag.P0[1])); t = 0; dirty = true; return; }
   if(drag.kind === "draw"){ if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 10) setLine(drag.A, P, null); return; }
   if(Math.hypot(q.x - drag.x0, q.y - drag.y0) > 4) drag.moved = true;
   if(drag.moved){ pts[drag.i].x = P[0]; pts[drag.i].y = P[1]; dirty = true; }
+});
+svg.addEventListener("pointermove", function(e){
+  if(drag) return;
+  var q = svgPt(e), c = "crosshair";
+  if(!running){
+    var h = handles();
+    if(h && h.some(function(p){ return Math.hypot(sx(p[0]) - q.x, sy(p[1]) - q.y) < 14; })) c = "pointer";
+    else if(nearLine(q)) c = "move";
+  }
+  svg.style.cursor = c;
 });
 svg.addEventListener("pointerup", function(){
   if(!drag) return;
