@@ -186,6 +186,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
       </div>
       <div class="btnrow">
         <button class="act" id="runBtn" type="button">Pause</button>
+        <button class="act" id="stepBtn" type="button">One step</button>
         <button class="act" id="restartBtn" type="button">Train from scratch</button>
         <button class="act" id="resample" type="button">Draw a new sample</button>
       </div>
@@ -412,6 +413,7 @@ svg.addEventListener("pointercancel", function(){ drag = null; });
 $("gap").addEventListener("input", function(){ gap = +this.value; $("gapV").textContent = gap.toFixed(1); });
 $("gap").addEventListener("change", function(){ generate(); dirty = true; });
 $("runBtn").addEventListener("click", function(){ running = !running; dirty = true; });
+$("stepBtn").addEventListener("click", function(){ running = false; step(); dirty = true; });
 $("restartBtn").addEventListener("click", function(){ w = [0,0,0]; t = 0; dirty = true; });
 $("resample").addEventListener("click", function(){ generate(); w = [0,0,0]; t = 0; dirty = true; });
 
