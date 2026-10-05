@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neural Network &middot; The hidden layer bends space</title>
+<style>
+:root{
+  --paper:#fbfbf9; --panel:#ffffff; --ink:#16191d; --muted:#6a7078;
+  --rule:#e2e5e9; --grid:#eef1f4;
+  --keep:#1b4570; --keep-soft:#d9e3ef;
+  --lose:#a83246; --lose-soft:#f2dcdf;
+  --pos:#1b4570; --neg:#b0781a;
+  --warp:#8a96a3;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, "Source Serif Pro", Georgia, serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html[data-theme="dark"]{
+  --paper:#14171a; --panel:#1b1f23; --ink:#e7e9ea; --muted:#99a1a9;
+  --rule:#2b3138; --grid:#232a30;
+  --keep:#6fa9dd; --keep-soft:#22323f;
+  --lose:#e0808c; --lose-soft:#3a262a;
+  --pos:#6fa9dd; --neg:#e2b25a;
+  --warp:#5d6873;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:1rem}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.62;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:62rem; margin:0 auto; padding:2.6rem 1.25rem 5rem}
+.prose{max-width:36rem}
+h1{font-size:2.05rem; line-height:1.18; font-weight:600; letter-spacing:-.012em; margin:0 0 .5rem}
+h2{font-size:1.28rem; font-weight:600; margin:2.9rem 0 .6rem; letter-spacing:-.006em}
+p{margin:0 0 1rem}
+.lede{font-size:1.09rem; color:var(--muted); max-width:36rem; margin-bottom:2rem}
+.kicker{font-family:var(--sans); font-size:.78rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--keep); margin:0 0 .4rem}
+.topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:1rem}
+.themebtn{
+  font-family:var(--sans); font-size:.78rem; color:var(--muted);
+  background:none; border:1px solid var(--rule); border-radius:999px;
+  padding:.3rem .8rem; cursor:pointer; white-space:nowrap;
+}
+.themebtn:hover{color:var(--ink); border-color:var(--muted)}
+.themebtn:focus-visible{outline:2px solid var(--keep); outline-offset:2px}
+
+.panel{background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:1.1rem; margin:0 0 1.1rem}
+.stage{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1.4rem; align-items:start}
+@media(max-width:760px){ .stage{grid-template-columns:1fr; gap:1.1rem} }
+canvas{display:block; width:100%; height:auto; aspect-ratio:1/1; touch-action:none}
+.sidehead{font-family:var(--sans); font-size:.86rem; font-weight:600; margin:0 0 .3rem}
+.sidecap{font-family:var(--sans); font-size:.76rem; color:var(--muted); margin:.3rem 0 0}
+.netbox{max-width:44rem; margin:0 auto 1.2rem; padding-bottom:1rem; border-bottom:1px dotted var(--rule); text-align:center}
+.netbox .sidehead{text-align:left}
+.netbox .sidecap{text-align:center}
+#net{display:block; width:100%; height:auto}
+#net text{font-family:var(--sans)}
+
+.legend{font-family:var(--sans); font-size:.76rem; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:center; gap:.9rem; margin-top:.6rem}
+.legend span{display:inline-flex; align-items:center; gap:.35rem}
+.sw{display:inline-block; width:.62rem; height:.62rem}
+.sw.pos{background:var(--pos); border-radius:50%}
+.sw.neg{background:var(--neg)}
+.sw.bnd{width:1rem; height:2px; background:var(--ink)}
+.sw.hid{width:1rem; height:0; border-top:1.5px dashed var(--muted)}
+.sw.warp{width:1rem; height:0; border-top:1px solid var(--warp)}
+.stats{font-family:var(--sans); font-size:.86rem; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem 1.6rem; margin-top:.6rem; font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink); font-weight:600}
+.hint{font-family:var(--sans); font-size:.78rem; color:var(--muted); margin:.55rem 0 0; text-align:center}
+
+.controls{border-top:1px solid var(--rule); margin-top:1.1rem; padding-top:1rem; font-family:var(--sans)}
+.ctl{display:grid; grid-template-columns:11rem 1fr 3.6rem; gap:.75rem; align-items:center; margin-bottom:.55rem; font-size:.84rem}
+.ctl label,.ctl .lab{color:var(--muted)}
+.ctl .val{text-align:right; font-variant-numeric:tabular-nums; font-size:.8rem; color:var(--ink)}
+.ctl .choices{display:flex; flex-wrap:wrap; gap:.4rem; grid-column:2 / 4}
+@media(max-width:520px){ .ctl{grid-template-columns:8.5rem 1fr 3.2rem; font-size:.8rem} }
+input[type=range]{width:100%; accent-color:var(--keep); height:1.15rem; background:transparent}
+input[type=range]:focus-visible{outline:2px solid var(--keep); outline-offset:3px; border-radius:3px}
+.btnrow{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.9rem}
+button.act{
+  font-family:var(--sans); font-size:.8rem; color:var(--ink); background:var(--panel);
+  border:1px solid var(--rule); border-radius:6px; padding:.36rem .7rem; cursor:pointer;
+}
+button.act:hover{border-color:var(--muted)}
+button.act:focus-visible{outline:2px solid var(--keep); outline-offset:2px}
+button.act.on{background:var(--keep-soft); border-color:var(--keep)}
+
+ul{margin:0 0 1rem; padding-left:1.15rem}
+li{margin-bottom:.45rem}
+footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); font-family:var(--sans); font-size:.8rem; color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <p class="kicker">Neural Network &middot; one hidden layer</p>
+      <h1>The hidden layer bends space</h1>
+    </div>
+    <button class="themebtn" id="theme" type="button">Dark</button>
+  </div>
+  <p class="lede">A network with two hidden neurons cannot draw a curved boundary directly. It moves the points into a new space and draws a straight line there. Press Run and watch both views at once: the input space on the left, and the same points after the hidden layer on the right.</p>
+
+  <div class="panel">
+    <div class="netbox">
+      <p class="sidehead">The network</p>
+      <svg id="net" viewBox="0 0 720 240" role="img" aria-label="Diagram of the 2-2-1 network with its current weights"></svg>
+      <p class="sidecap" id="netcap">Each neuron is a weighted sum &Sigma; followed by its activation. Blue edges are positive weights, red negative; thicker means larger. Point at any dot to see its values pass through.</p>
+    </div>
+    <div class="stage">
+      <div>
+        <p class="sidehead">Input space (x&#8321;, x&#8322;)</p>
+        <canvas id="cin" aria-label="Input space with data points, the network's decision boundary and the two hidden neurons' lines"></canvas>
+        <p class="sidecap">Shading is the network's p&#770;. The dashed lines are where each hidden neuron switches, z&#8321; = 0 and z&#8322; = 0.</p>
+      </div>
+      <div>
+        <p class="sidehead">Hidden space (h&#8321;, h&#8322;)</p>
+        <canvas id="chid" aria-label="Hidden space with the same points after the hidden layer, the warped input grid and the output neuron's straight boundary"></canvas>
+        <p class="sidecap">Each point placed at the outputs of the two hidden neurons. The grey curves are the grid lines of the left panel, carried through the hidden layer.</p>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw pos"></i>y = 1</span>
+      <span><i class="sw neg"></i>y = 0</span>
+      <span><i class="sw bnd"></i>boundary, p&#770; = 0.5</span>
+      <span><i class="sw hid"></i>hidden neuron switches</span>
+      <span><i class="sw warp"></i>input grid, after the hidden layer</span>
+    </div>
+    <div class="stats">
+      <span>step <b id="vT">0</b></span>
+      <span>loss <b id="vL">—</b></span>
+      <span>misclassified <b id="vE">—</b></span>
+    </div>
+    <p class="hint">Point at any dot to find the same sample in the other panel.</p>
+
+    <div class="controls">
+      <div class="ctl">
+        <span class="lab">Data</span>
+        <div class="choices" id="dataBtns">
+          <button class="act on" type="button" data-v="xor">XOR clusters</button>
+          <button class="act" type="button" data-v="moons">Two moons</button>
+          <button class="act" type="button" data-v="ring">Disc in a ring</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lab">Hidden activation</span>
+        <div class="choices" id="actBtns">
+          <button class="act on" type="button" data-v="tanh">tanh</button>
+          <button class="act" type="button" data-v="sigmoid">sigmoid</button>
+          <button class="act" type="button" data-v="relu">ReLU</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label for="lr">Learning rate</label>
+        <input type="range" id="lr" min="0.05" max="2" step="0.05" value="0.5">
+        <span class="val" id="lrV">0.50</span>
+      </div>
+      <div class="btnrow">
+        <button class="act" id="runBtn" type="button">Run</button>
+        <button class="act" id="stepBtn" type="button">One step</button>
+        <button class="act" id="restartBtn" type="button">Train from scratch</button>
+        <button class="act" id="resample" type="button">Draw a new sample</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="prose">
+    <h2>What you are looking at</h2>
+    <p>The diagram at the top is the network itself, drawn with its current weights: two inputs, one hidden layer of two neurons and one sigmoid output neuron. Each hidden neuron computes h&#7522; = g(w&#7522;&middot;x + b&#7522;), and the output is p&#770; = &sigma;(v&#8321;h&#8321; + v&#8322;h&#8322; + c). It is trained by batch gradient descent on the cross-entropy loss, with backpropagation supplying the gradient.</p>
+    <p>On the left, each dashed line is where one hidden neuron&rsquo;s score crosses zero, so each hidden neuron on its own is a logistic-regression-style line. The network&rsquo;s boundary, the solid curve, is not either of them: it is what the output neuron makes of the two together.</p>
+    <p>On the right, every sample is plotted at (h&#8321;, h&#8322;), the pair of numbers the output neuron actually sees. The output neuron is just logistic regression in this space, so its boundary here is always a straight line. The grey curves show what the hidden layer does to the whole plane: the square grid of the left panel is stretched, squeezed and bent until a straight line can separate the classes.</p>
+
+    <h2>The take-home message</h2>
+    <p>A hidden layer learns a new representation of the data in which the classes become linearly separable. The curved boundary in the input space is nothing more than a straight line in the hidden space, carried back through the hidden layer.</p>
+
+    <h2>A limitation</h2>
+    <p>Two hidden neurons can bend and squeeze the plane, but they cannot fold it. The map from (x&#8321;, x&#8322;) to (h&#8321;, h&#8322;) never sends two different regions on top of each other, so on <em>Disc in a ring</em> the inner class stays surrounded by the outer one in the hidden space too, and no straight line can cut it out. Training stalls with some points misclassified. A third hidden neuron lifts the data into three dimensions, where a plane can slice the disc off; that hidden space can no longer be drawn flat, which is why this demo stops at two.</p>
+
+    <h2>Things to try</h2>
+    <ul>
+      <li>On <em>XOR clusters</em>, press <em>One step</em> a few times, then <em>Run</em>. Early on, all four clusters sit near the centre of the hidden space. Watch two diagonal clusters get pushed into one corner and the other two pulled apart until the output line can split them.</li>
+      <li>Point at a dot near the curved boundary on the left, then find it on the right. It sits close to the straight line there too: near the boundary in one space means near it in the other.</li>
+      <li>Press <em>Train from scratch</em> several times on XOR. Each press starts from new random weights. Some runs reach a clean fit by a different route; many end with one cluster stuck on the wrong side, however long you run. That is a local minimum: the loss of a network is not convex, unlike logistic regression&rsquo;s, and where training ends depends on where it starts.</li>
+      <li>Switch the hidden activation to ReLU. The hidden space now has folds and creases rather than smooth bends, because ReLU zeroes everything on one side of each dashed line. Points on the wrong side of both lines collapse onto the single corner (0, 0).</li>
+      <li>Try <em>Two moons</em>, then <em>Disc in a ring</em>, and compare how far the grid can be bent in each case.</li>
+    </ul>
+  </div>
+
+  <footer>
+    Points are simulated. A 2&ndash;2&ndash;1 network with small random initial weights, trained by batch gradient descent on the cross-entropy loss with backpropagation. Each preset opens with a fixed sample and a fixed starting point that trains well; <em>Train from scratch</em> and <em>Draw a new sample</em> are fully random. Nothing is fetched or stored &mdash; refresh to reset.
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function sig(z){ return z >= 0 ? 1/(1+Math.exp(-z)) : Math.exp(z)/(1+Math.exp(z)); }
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; var q = Math.imul(a ^ a >>> 15, 1 | a); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0)/4294967296; }; }
+var rnd = Math.random;
+function seed(s){ rnd = mulberry(s); }
+function freshSeed(){ return (Math.random()*4294967296) >>> 0; }
+function randn(){ var u = 1 - rnd(), v = rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function hex(c){ c = c.replace("#",""); if(c.length === 3) c = c.split("").map(function(x){return x+x;}).join("");
+  return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)]; }
+
+var R = 3.5, STEPS_PER_FRAME = 3;
+// Default sample and starting weights for each preset are seeded so that the first run
+// shows a successful fit; "Train from scratch" and "Draw a new sample" use fresh random seeds.
+var DATA_SEED = { xor:11, moons:12, ring:13 };
+var INIT_SEED = { xortanh:1, xorsigmoid:30, xorrelu:1, moonstanh:6, moonssigmoid:6, moonsrelu:14, ringtanh:15, ringsigmoid:50, ringrelu:1 };
+var data = "xor", act = "tanh", eta = 0.5;
+var pts = [], t = 0, running = false, dirty = true, hover = -1;
+var W, b, v, c;   // W: 2x2 (row i = hidden neuron i), b: 2, v: 2, c: scalar
+
+// ---------- data ----------
+function generate(s){
+  seed(s); pts = [];
+  var i, n;
+  if(data === "xor"){
+    var C = [[-1.5,-1.5,0],[1.5,1.5,0],[-1.5,1.5,1],[1.5,-1.5,1]];
+    C.forEach(function(q){ for(i = 0; i < 22; i++) pts.push({ x:clamp(q[0] + 0.55*randn()), y:clamp(q[1] + 0.55*randn()), c:q[2] }); });
+  } else if(data === "moons"){
+    n = 55;
+    for(i = 0; i < n; i++){
+      var a = Math.PI*rnd();
+      pts.push({ x:clamp(1.9*Math.cos(a) - 0.9 + 0.2*randn()), y:clamp(1.9*Math.sin(a) - 0.6 + 0.2*randn()), c:1 });
+      a = Math.PI*rnd();
+      pts.push({ x:clamp(0.9 - 1.9*Math.cos(a) + 0.2*randn()), y:clamp(0.6 - 1.9*Math.sin(a) + 0.2*randn()), c:0 });
+    }
+  } else {
+    for(i = 0; i < 50; i++){
+      var r = 1.1*Math.sqrt(rnd()), th = 2*Math.PI*rnd();
+      pts.push({ x:r*Math.cos(th), y:r*Math.sin(th), c:1 });
+      r = 2.1 + 0.8*rnd(); th = 2*Math.PI*rnd();
+      pts.push({ x:clamp(r*Math.cos(th)), y:clamp(r*Math.sin(th)), c:0 });
+    }
+  }
+}
+function clamp(q){ return Math.max(-R + 0.15, Math.min(R - 0.15, q)); }
+
+// ---------- network ----------
+function g(z){ return act === "tanh" ? Math.tanh(z) : act === "sigmoid" ? sig(z) : Math.max(0, z); }
+function gp(z, h){ return act === "tanh" ? 1 - h*h : act === "sigmoid" ? h*(1 - h) : (z > 0 ? 1 : 0); }
+function init(sd){
+  seed(sd);
+  var s = act === "sigmoid" ? 0.9 : act === "relu" ? 0.6 : 0.35;
+  W = [[s*randn(), s*randn()], [s*randn(), s*randn()]];
+  b = act === "relu" ? [0.3, 0.3] : [0, 0];
+  v = [0.5*randn(), 0.5*randn()]; c = 0; t = 0;
+}
+function hidden(x, y){
+  var z1 = W[0][0]*x + W[0][1]*y + b[0], z2 = W[1][0]*x + W[1][1]*y + b[1];
+  return [g(z1), g(z2), z1, z2];
+}
+function outp(h1, h2){ return sig(v[0]*h1 + v[1]*h2 + c); }
+function step(){
+  var n = pts.length, gW = [[0,0],[0,0]], gb = [0,0], gv = [0,0], gc = 0;
+  pts.forEach(function(q){
+    var H = hidden(q.x, q.y), p = outp(H[0], H[1]), d = p - q.c;
+    gv[0] += d*H[0]; gv[1] += d*H[1]; gc += d;
+    for(var i = 0; i < 2; i++){
+      var dz = d*v[i]*gp(H[2+i], H[i]);
+      gW[i][0] += dz*q.x; gW[i][1] += dz*q.y; gb[i] += dz;
+    }
+  });
+  for(var i = 0; i < 2; i++){
+    W[i][0] -= eta*gW[i][0]/n; W[i][1] -= eta*gW[i][1]/n; b[i] -= eta*gb[i]/n; v[i] -= eta*gv[i]/n;
+  }
+  c -= eta*gc/n; t++;
+}
+function stats(){
+  var L = 0, E = 0;
+  pts.forEach(function(q){
+    var H = hidden(q.x, q.y), p = Math.min(1 - 1e-12, Math.max(1e-12, outp(H[0], H[1])));
+    L -= q.c ? Math.log(p) : Math.log(1 - p);
+    if((p >= 0.5 ? 1 : 0) !== q.c) E++;
+  });
+  return [L/pts.length, E];
+}
+
+// ---------- canvases ----------
+var S = 520, M = 26, PW = S - 2*M;
+function setup(cv){
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = S*dpr; cv.height = S*dpr;
+  var ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return ctx;
+}
+var cin = $("cin"), chid = $("chid"), X1 = setup(cin), X2 = setup(chid);
+function ix(x){ return M + (x + R)/(2*R)*PW; }
+function iy(y){ return S - M - (y + R)/(2*R)*PW; }
+var hr = { lo0:-1.15, hi0:1.15, lo1:-1.15, hi1:1.15 };   // hidden-space view range
+function hx(h){ return M + (h - hr.lo0)/(hr.hi0 - hr.lo0)*PW; }
+function hy(h){ return S - M - (h - hr.lo1)/(hr.hi1 - hr.lo1)*PW; }
+function setHiddenRange(){
+  if(act === "tanh"){ hr = { lo0:-1.15, hi0:1.15, lo1:-1.15, hi1:1.15 }; return; }
+  if(act === "sigmoid"){ hr = { lo0:-0.12, hi0:1.12, lo1:-0.12, hi1:1.12 }; return; }
+  var m = 0.5;                      // ReLU: fit the data points; grid curves beyond are clipped
+  pts.forEach(function(q){ var H = hidden(q.x, q.y); m = Math.max(m, H[0], H[1]); });
+  m *= 1.12;                         // same scale on both axes keeps the geometry honest
+  hr = { lo0:-0.06*m, hi0:m, lo1:-0.06*m, hi1:m };
+}
+
+var off = document.createElement("canvas"), G = 90; off.width = G; off.height = G;
+var octx = off.getContext("2d"), img = octx.createImageData(G, G);
+function tint(base, col, a){ return [base[0] + (col[0]-base[0])*a, base[1] + (col[1]-base[1])*a, base[2] + (col[2]-base[2])*a]; }
+function paintField(ctx, fn){   // fn(u, v) -> p, with u, v in [0,1] across the plot
+  var pan = hex(css("--panel")), cp = hex(css("--pos")), cn = hex(css("--neg"));
+  var dark = document.documentElement.getAttribute("data-theme") === "dark", A = dark ? 0.2 : 0.26;
+  for(var j = 0; j < G; j++) for(var i = 0; i < G; i++){
+    var p = fn((i + 0.5)/G, 1 - (j + 0.5)/G), col = p >= 0.5 ? tint(pan, cp, A*(2*p - 1)) : tint(pan, cn, A*(1 - 2*p));
+    var o = 4*(j*G + i); img.data[o] = col[0]; img.data[o+1] = col[1]; img.data[o+2] = col[2]; img.data[o+3] = 255;
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(off, M, M, PW, PW);
+}
+// marching squares for p = 0.5 over the input square
+function contour(ctx, fn, toX, toY, lo0, hi0, lo1, hi1){
+  var N = 80, f = [], i, j;
+  for(j = 0; j <= N; j++){ f.push([]); for(i = 0; i <= N; i++) f[j].push(fn(lo0 + (hi0-lo0)*i/N, lo1 + (hi1-lo1)*j/N) - 0.5); }
+  function P(i0, j0, i1, j1){ var a = f[j0][i0], d = f[j1][i1], tt = a/(a - d);
+    var u = i0 + (i1 - i0)*tt, w = j0 + (j1 - j0)*tt; return [toX(lo0 + (hi0-lo0)*u/N), toY(lo1 + (hi1-lo1)*w/N)]; }
+  ctx.beginPath();
+  for(j = 0; j < N; j++) for(i = 0; i < N; i++){
+    var e = [], s0 = f[j][i] >= 0, s1 = f[j][i+1] >= 0, s2 = f[j+1][i+1] >= 0, s3 = f[j+1][i] >= 0;
+    if(s0 !== s1) e.push(P(i,j,i+1,j));
+    if(s1 !== s2) e.push(P(i+1,j,i+1,j+1));
+    if(s2 !== s3) e.push(P(i+1,j+1,i,j+1));
+    if(s3 !== s0) e.push(P(i,j+1,i,j));
+    for(var k = 0; k + 1 < e.length; k += 2){ ctx.moveTo(e[k][0], e[k][1]); ctx.lineTo(e[k+1][0], e[k+1][1]); }
+  }
+  ctx.stroke();
+}
+function lineInSquare(a, bb, cc, lo, hi){   // a*x + bb*y + cc = 0 clipped to [lo,hi]^2
+  var hits = [], cs = [[lo,lo],[hi,lo],[hi,hi],[lo,hi]];
+  for(var i = 0; i < 4; i++){
+    var p = cs[i], q = cs[(i+1)%4], fp = a*p[0] + bb*p[1] + cc, fq = a*q[0] + bb*q[1] + cc;
+    if((fp >= 0) !== (fq >= 0)){ var tt = fp/(fp - fq); hits.push([p[0] + tt*(q[0]-p[0]), p[1] + tt*(q[1]-p[1])]); }
+  }
+  return hits.length >= 2 ? hits : null;
+}
+function frameBox(ctx){
+  ctx.clearRect(0, 0, S, S);
+  ctx.fillStyle = css("--panel"); ctx.fillRect(0, 0, S, S);
+}
+function dots(ctx, fx, fy, posOf){
+  var cp = css("--pos"), cn = css("--neg"), pan = css("--panel"), ink = css("--ink");
+  pts.forEach(function(q, k){
+    var P = posOf(q), X = fx(P[0]), Y = fy(P[1]);
+    ctx.lineWidth = 1.3; ctx.strokeStyle = pan;
+    if(q.c){ ctx.fillStyle = cp; ctx.beginPath(); ctx.arc(X, Y, 4.6, 0, 2*Math.PI); ctx.fill(); ctx.stroke(); }
+    else { ctx.fillStyle = cn; ctx.beginPath(); ctx.rect(X - 4.2, Y - 4.2, 8.4, 8.4); ctx.fill(); ctx.stroke(); }
+    q["px" + (ctx === X1 ? 1 : 2)] = [X, Y];
+  });
+  if(hover >= 0){
+    var P = posOf(pts[hover]); ctx.strokeStyle = ink; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(fx(P[0]), fy(P[1]), 10, 0, 2*Math.PI); ctx.stroke();
+  }
+}
+function label(ctx, txt, x, y, align){
+  ctx.font = "12px " + css("--sans"); ctx.fillStyle = css("--muted"); ctx.textAlign = align || "left"; ctx.fillText(txt, x, y);
+}
+
+function renderInput(){
+  var ctx = X1; frameBox(ctx);
+  paintField(ctx, function(u, w){ var x = -R + 2*R*u, y = -R + 2*R*w, H = hidden(x, y); return outp(H[0], H[1]); });
+  // grid
+  ctx.strokeStyle = css("--warp"); ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  for(var k = 0; k <= 8; k++){ var e = -R + 2*R*k/8;
+    ctx.beginPath(); ctx.moveTo(ix(e), iy(-R)); ctx.lineTo(ix(e), iy(R)); ctx.moveTo(ix(-R), iy(e)); ctx.lineTo(ix(R), iy(e)); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // hidden neurons' lines
+  ctx.strokeStyle = css("--muted"); ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+  for(var i = 0; i < 2; i++){
+    var L = lineInSquare(W[i][0], W[i][1], b[i], -R, R);
+    if(L){ ctx.beginPath(); ctx.moveTo(ix(L[0][0]), iy(L[0][1])); ctx.lineTo(ix(L[1][0]), iy(L[1][1])); ctx.stroke();
+      var A = L[0][1] > L[1][1] ? L[0] : L[1]; label(ctx, "z" + (i ? "\u2082" : "\u2081") + " = 0", Math.min(S - M - 46, Math.max(M + 4, ix(A[0]) + 5)), Math.max(M + 14, iy(A[1]) + 14)); }
+  }
+  ctx.setLineDash([]);
+  // network boundary
+  ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2.2;
+  contour(ctx, function(x, y){ var H = hidden(x, y); return outp(H[0], H[1]); }, ix, iy, -R, R, -R, R);
+  dots(ctx, ix, iy, function(q){ return [q.x, q.y]; });
+  ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1; ctx.strokeRect(M, M, PW, PW);
+  label(ctx, "x\u2081", S - M, S - 8, "right"); label(ctx, "x\u2082", 6, M + 10);
+}
+
+function renderHidden(){
+  var ctx = X2; setHiddenRange(); frameBox(ctx);
+  paintField(ctx, function(u, w){ return outp(hr.lo0 + (hr.hi0 - hr.lo0)*u, hr.lo1 + (hr.hi1 - hr.lo1)*w); });
+  ctx.save(); ctx.beginPath(); ctx.rect(M, M, PW, PW); ctx.clip();
+  // axes through the origin
+  ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(hx(0), M); ctx.lineTo(hx(0), S - M); ctx.moveTo(M, hy(0)); ctx.lineTo(S - M, hy(0)); ctx.stroke();
+  // warped grid
+  ctx.strokeStyle = css("--warp"); ctx.lineWidth = 1;
+  for(var k = 0; k <= 8; k++){
+    var e = -R + 2*R*k/8, edge = (k === 0 || k === 8);
+    ctx.globalAlpha = edge ? 0.95 : 0.6; ctx.lineWidth = edge ? 1.4 : 1;
+    [0, 1].forEach(function(dir){
+      ctx.beginPath();
+      for(var s = 0; s <= 60; s++){
+        var a = -R + 2*R*s/60, H = dir ? hidden(e, a) : hidden(a, e), X = hx(H[0]), Y = hy(H[1]);
+        if(s) ctx.lineTo(X, Y); else ctx.moveTo(X, Y);
+      }
+      ctx.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
+  // output neuron's straight boundary
+  var L = lineInSquare(v[0], v[1], c, Math.min(hr.lo0, hr.lo1) - 10, Math.max(hr.hi0, hr.hi1) + 10);
+  if(L){ ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(hx(L[0][0]), hy(L[0][1])); ctx.lineTo(hx(L[1][0]), hy(L[1][1])); ctx.stroke(); }
+  dots(ctx, hx, hy, function(q){ var H = hidden(q.x, q.y); return [H[0], H[1]]; });
+  ctx.restore();
+  ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1; ctx.strokeRect(M, M, PW, PW);
+  label(ctx, "h\u2081", S - M, S - 8, "right"); label(ctx, "h\u2082", 6, M + 10);
+}
+
+// ---------- network diagram ----------
+var NS = "http://www.w3.org/2000/svg", net = $("net");
+function sel(tag, a, p){ var e = document.createElementNS(NS, tag); for(var k in a) e.setAttribute(k, a[k]); if(p) p.appendChild(e); return e; }
+function stxt(p, x, y, s, o){ var e = sel("text", Object.assign({ x:x, y:y, "text-anchor":"middle" }, o || {}), p); e.textContent = s; return e; }
+function fmt(x){ return (x < 0 ? "\u2212" : "") + Math.abs(x).toFixed(2); }
+function renderNet(){
+  while(net.firstChild) net.removeChild(net.firstChild);
+  var ink = css("--ink"), mut = css("--muted"), pan = css("--panel"), kp = css("--keep"), ks = css("--keep-soft"), ls = css("--lose");
+  var r = 19, BW = 54, BH = 32;
+  var IN = [[86, 52], [86, 162]], SH = [[282, 52], [282, 162]], GH = [[380, 52], [380, 162]], SO = [544, 107], GO = [632, 107];
+  var q = hover >= 0 ? pts[hover] : null, H = q ? hidden(q.x, q.y) : null, s = q ? v[0]*H[0] + v[1]*H[1] + c : null, P = q ? sig(s) : null;
+  function arrowLine(x1, y1, x2, y2, col, sw, op){
+    var dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx/L, uy = dy/L, xe = x2 - ux*6, ye = y2 - uy*6;
+    sel("line", { x1:x1, y1:y1, x2:xe, y2:ye, stroke:col, "stroke-width":sw, "stroke-linecap":"round", opacity:op }, net);
+    sel("path", { d:"M" + x2 + "," + y2 + " L" + (xe - uy*4.5) + "," + (ye + ux*4.5) + " L" + (xe + uy*4.5) + "," + (ye - ux*4.5) + " Z", fill:col, opacity:op }, net);
+  }
+  function wedge(a, ar, bb, w, frac){   // weighted edge from a (radius or half-width ar) to circle bb
+    var dx = bb[0] - a[0], dy = bb[1] - a[1], L = Math.hypot(dx, dy), ux = dx/L, uy = dy/L;
+    var col = w >= 0 ? kp : ls, sw = (1 + 4.2*Math.min(Math.abs(w), 4)/4).toFixed(2);
+    arrowLine(a[0] + ux*ar, a[1] + uy*ar, bb[0] - ux*r, bb[1] - uy*r, col, sw, 0.85);
+    var mx = a[0] + dx*frac, my = a[1] + dy*frac;
+    sel("rect", { x:mx - 22, y:my - 9, width:44, height:17, rx:3, fill:pan, opacity:0.92 }, net);
+    stxt(net, mx, my + 4.5, fmt(w), { "font-size":12, fill:col, "font-weight":600 });
+  }
+  function value(x, y, s){ stxt(net, x, y, s, { "font-size":12.5, fill:ink, "font-weight":600 }); }
+  function circ(p, name, fill){
+    sel("circle", { cx:p[0], cy:p[1], r:r, fill:fill, stroke:ink, "stroke-width":1.3 }, net);
+    stxt(net, p[0], p[1] + 5, name, { "font-size":name === "\u03a3" ? 16 : 15, fill:ink, "font-style":name === "\u03a3" ? "normal" : "italic" });
+  }
+  function box(p, name){
+    sel("rect", { x:p[0] - BW/2, y:p[1] - BH/2, width:BW, height:BH, rx:5, fill:ks, stroke:ink, "stroke-width":1.3 }, net);
+    stxt(net, p[0], p[1] + 5, name, { "font-size":13.5, fill:ink });
+  }
+  // weighted edges
+  wedge(IN[0], r, SH[0], W[0][0], 0.45); wedge(IN[1], r, SH[1], W[1][1], 0.45);
+  wedge(IN[0], r, SH[1], W[1][0], 0.24); wedge(IN[1], r, SH[0], W[0][1], 0.24);
+  wedge([GH[0][0] + BW/2 - 2, GH[0][1]], 2, SO, v[0], 0.42); wedge([GH[1][0] + BW/2 - 2, GH[1][1]], 2, SO, v[1], 0.42);
+  // unweighted links: sum -> activation -> output
+  for(var i = 0; i < 2; i++){
+    arrowLine(SH[i][0] + r, SH[i][1], GH[i][0] - BW/2, GH[i][1], mut, 1.3, 1);
+    stxt(net, (SH[i][0] + GH[i][0] - BW/2 + r)/2, SH[i][1] + 16, "z" + (i ? "\u2082" : "\u2081"), { "font-size":12, fill:mut, "font-style":"italic" });
+  }
+  arrowLine(SO[0] + r, SO[1], GO[0] - BW/2, GO[1], mut, 1.3, 1);
+  stxt(net, (SO[0] + r + GO[0] - BW/2)/2, SO[1] + 16, "s", { "font-size":12, fill:mut, "font-style":"italic" });
+  arrowLine(GO[0] + BW/2, GO[1], GO[0] + BW/2 + 26, GO[1], mut, 1.3, 1);
+  stxt(net, GO[0] + BW/2 + 40, GO[1] + 5, "p\u0302", { "font-size":15, fill:ink, "font-style":"italic" });
+  // nodes
+  circ(IN[0], "x\u2081", pan); circ(IN[1], "x\u2082", pan);
+  for(i = 0; i < 2; i++){
+    circ(SH[i], "\u03a3", ks); box(GH[i], act);
+    stxt(net, SH[i][0], SH[i][1] + r + 15, "b" + (i ? "\u2082" : "\u2081") + " = " + fmt(b[i]), { "font-size":11.5, fill:mut });
+    stxt(net, GH[i][0], GH[i][1] + BH/2 + 15, "h" + (i ? "\u2082" : "\u2081"), { "font-size":12, fill:mut, "font-style":"italic" });
+  }
+  circ(SO, "\u03a3", ks); box(GO, "\u03c3");
+  stxt(net, SO[0], SO[1] + r + 15, "c = " + fmt(c), { "font-size":11.5, fill:mut });
+  // values for the hovered sample
+  if(q){
+    value(IN[0][0] - r - 26, IN[0][1] + 4.5, fmt(q.x)); value(IN[1][0] - r - 26, IN[1][1] + 4.5, fmt(q.y));
+    for(i = 0; i < 2; i++){
+      value((SH[i][0] + GH[i][0] - BW/2 + r)/2, SH[i][1] - 8, fmt(H[2+i]));
+      value(GH[i][0], GH[i][1] - BH/2 - 7, fmt(H[i]));
+    }
+    value((SO[0] + r + GO[0] - BW/2)/2, SO[1] - 8, fmt(s));
+    value(GO[0] + BW/2 + 40, GO[1] - 16, P.toFixed(2));
+  }
+  stxt(net, IN[0][0], 230, "input", { "font-size":11.5, fill:mut });
+  stxt(net, (SH[0][0] + GH[0][0])/2, 230, "hidden layer", { "font-size":11.5, fill:mut });
+  stxt(net, (SO[0] + GO[0])/2, 230, "output", { "font-size":11.5, fill:mut });
+  if(q){
+    var ok = (P >= 0.5 ? 1 : 0) === q.c;
+    stxt(net, GO[0] + BW/2 + 40, GO[1] + 34, "y = " + q.c, { "font-size":11.5, fill:mut });
+    stxt(net, GO[0] + BW/2 + 40, GO[1] + 49, ok ? "correct" : "wrong", { "font-size":11.5, fill:ok ? kp : ls, "font-weight":600 });
+  }
+}
+
+function render(){
+  renderInput(); renderHidden(); renderNet();
+  var st = stats();
+  $("vT").textContent = t; $("vL").textContent = st[0].toFixed(3); $("vE").textContent = st[1] + " of " + pts.length;
+  $("runBtn").textContent = running ? "Pause" : "Run"; $("runBtn").classList.toggle("on", running);
+}
+function frame(){
+  if(running){ var n = t < 150 ? 1 : t < 600 ? STEPS_PER_FRAME : 3*STEPS_PER_FRAME;   // slow at first, so the early motion can be followed
+    for(var k = 0; k < n; k++) step(); dirty = true; }
+  if(dirty){ render(); dirty = false; }
+  requestAnimationFrame(frame);
+}
+
+// ---------- hover link ----------
+function nearest(cv, e, key){
+  var r = cv.getBoundingClientRect(), x = (e.clientX - r.left)/r.width*S, y = (e.clientY - r.top)/r.height*S, best = -1, bd = 14;
+  pts.forEach(function(q, k){ var p = q[key]; if(!p) return; var d = Math.hypot(p[0] - x, p[1] - y); if(d < bd){ bd = d; best = k; } });
+  return best;
+}
+[[cin, "px1"], [chid, "px2"]].forEach(function(pair){
+  pair[0].addEventListener("pointermove", function(e){ var k = nearest(pair[0], e, pair[1]); if(k !== hover){ hover = k; dirty = true; } pair[0].style.cursor = k >= 0 ? "pointer" : "default"; });
+  pair[0].addEventListener("pointerdown", function(e){ var k = nearest(pair[0], e, pair[1]); if(k !== hover){ hover = k; dirty = true; } });
+  pair[0].addEventListener("pointerleave", function(){ if(hover >= 0){ hover = -1; dirty = true; } });
+});
+
+// ---------- controls ----------
+function choice(id, set){
+  var box = $(id);
+  box.addEventListener("click", function(e){
+    var bt = e.target.closest("button"); if(!bt) return;
+    Array.prototype.forEach.call(box.children, function(x){ x.classList.toggle("on", x === bt); });
+    set(bt.getAttribute("data-v")); running = false; hover = -1; generate(DATA_SEED[data]); init(INIT_SEED[data + act] || 1); dirty = true;
+  });
+}
+choice("dataBtns", function(val){ data = val; });
+choice("actBtns", function(val){ act = val; });
+$("lr").addEventListener("input", function(){ eta = +this.value; $("lrV").textContent = eta.toFixed(2); });
+$("runBtn").addEventListener("click", function(){ running = !running; dirty = true; });
+$("stepBtn").addEventListener("click", function(){ running = false; step(); dirty = true; });
+$("restartBtn").addEventListener("click", function(){ running = false; init(freshSeed()); dirty = true; });
+$("resample").addEventListener("click", function(){ running = false; hover = -1; generate(freshSeed()); init(freshSeed()); dirty = true; });
+
+var root = document.documentElement;
+function setTheme(th){ root.setAttribute("data-theme", th); $("theme").textContent = th === "dark" ? "Light" : "Dark"; dirty = true; }
+$("theme").addEventListener("click", function(){ setTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark"); });
+
+generate(DATA_SEED[data]); init(INIT_SEED[data + act] || 1);
+setTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
