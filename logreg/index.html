@@ -190,6 +190,7 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
         <button class="act" id="stepBtn" type="button">One step</button>
         <button class="act" id="restartBtn" type="button">Train from scratch</button>
         <button class="act" id="resample" type="button">Draw a new sample</button>
+        <button class="act" id="xorBtn" type="button">XOR clusters</button>
       </div>
     </div>
   </div>
@@ -206,12 +207,16 @@ footer{margin-top:3.2rem; padding-top:1rem; border-top:1px solid var(--rule); fo
     <h2>A limitation</h2>
     <p>When the two classes can be separated by a line, logistic regression has no single answer. Every separating line can push the loss toward zero just by growing &#8214;w&#8214;, and once every point is on its correct side, all the pulls are close to zero. Nothing then pushes the line toward the middle of the gap, so where it ends up depends on where training started and when it stopped. The <em>margin</em> readout, the distance from the line to the nearest point, makes the difference visible.</p>
 
+    <h2>A second limitation</h2>
+    <p>The boundary is always a single straight line. Press <em>XOR clusters</em>: each class now sits in two opposite corners, and no line can put both corners of one class on the same side. Training does its best by shrinking w toward zero, so p&#770; drifts to about 0.5 everywhere, every halo stays large, and about half the points remain misclassified however long it runs. Separating these classes needs a boundary that bends, which is what a hidden layer provides.</p>
+
     <h2>Things to try</h2>
     <ul>
       <li>The page opens at w = 0, where every point has p&#770; = 0.5 and an equal halo. Click <em>One step</em> a few times and watch the line appear and turn as the halos shrink. <em>Train from scratch</em> returns to w = 0.</li>
       <li>Drag a point deep into its own class&rsquo;s territory. Its halo and its stick almost vanish, and the line barely moves. Drag it across the line and it pulls the whole line toward it.</li>
       <li>Flip the label of a point far from the boundary. One confident mistake shifts and tilts the line, and the bands spread out.</li>
       <li>Raise the gap until the classes separate and the margin readout shows a number after training. Note the margin, then pause, draw a starting line that separates the classes but runs close to one of them, and run. The line stays near where you drew it, with a much smaller margin. Press <em>Train from scratch</em> and run again: the same data, a different line.</li>
+      <li>Press <em>XOR clusters</em> and run. Watch &#8214;w&#8214; shrink, the bands fade and the S-curve on the right flatten to 0.5. Try drawing a starting line yourself: whichever way it points, training pulls it back to the same stalemate.</li>
       <li>On separable data, also watch the bands: they keep squeezing toward the boundary, &#8214;w&#8214; keeps growing and the S-curve on the right steepens toward a step: with nothing left to get wrong, the model only grows more confident.</li>
     </ul>
   </div>
@@ -232,11 +237,20 @@ function sig(z){ return z >= 0 ? 1/(1+Math.exp(-z)) : Math.exp(z)/(1+Math.exp(z)
 function randn(){ var u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
 
 var R = 4, N_PER = 15, ETA = 0.5, STEPS_PER_FRAME = 2;
-var pts = [], w = [0,0,0], t = 0, running = false, gap = 3;   // w = (w1, w2, w0)
+var pts = [], w = [0,0,0], t = 0, running = false, gap = 3, xor = false;   // w = (w1, w2, w0)
 var DIR = [Math.cos(0.6), Math.sin(0.6)];
 
 function generate(){
   pts = [];
+  if(xor){
+    // four clusters: class 1 where x1 and x2 have the same sign, class 0 where they differ
+    var c = 0.9 + gap/3, sd = 0.55, k = 0;
+    [[1,1,1],[-1,-1,1],[1,-1,0],[-1,1,0]].forEach(function(q, j){
+      var n = j % 2 === 0 ? Math.ceil(N_PER/2) : Math.floor(N_PER/2);
+      for(var i = 0; i < n; i++) pts.push({ x:clamp(q[0]*c + sd*randn()), y:clamp(q[1]*c + sd*randn()), c:q[2] });
+    });
+    return;
+  }
   for(var i = 0; i < N_PER; i++){
     pts.push({ x:clamp(-gap/2*DIR[0] + randn()), y:clamp(-gap/2*DIR[1] + randn()), c:0 });
     pts.push({ x:clamp( gap/2*DIR[0] + randn()), y:clamp( gap/2*DIR[1] + randn()), c:1 });
@@ -494,6 +508,11 @@ $("gap").addEventListener("change", function(){ generate(); dirty = true; });
 $("runBtn").addEventListener("click", function(){ running = !running; drag = null; dirty = true; });
 $("stepBtn").addEventListener("click", function(){ running = false; step(); dirty = true; });
 $("restartBtn").addEventListener("click", function(){ running = false; w = [0,0,0]; t = 0; dirty = true; });
+$("xorBtn").addEventListener("click", function(){
+  xor = !xor; this.classList.toggle("on", xor);
+  this.textContent = xor ? "Back to two clouds" : "XOR clusters";
+  running = false; generate(); w = [0,0,0]; t = 0; dirty = true;
+});
 $("resample").addEventListener("click", function(){ running = false; generate(); w = [0,0,0]; t = 0; dirty = true; });
 
 var root = document.documentElement;
