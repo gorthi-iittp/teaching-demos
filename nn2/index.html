@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neural Network · Backpropagation, step by step</title>
+<style>
+:root{
+  --bg:#FAFAF8; --surface:#FFFFFF; --ink:#1F2733; --muted:#5E6673; --rule:#DCE0E6;
+  --navy:#1B4570; --pos:#2F68B0; --neg:#C0414E; --coral:#D9663B; --coral-soft:#FBEDE6;
+  --teal:#2E7D6B; --teal-soft:#E4F2EE; --node:#FFFFFF; --off:#E9ECF0;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151B24; --surface:#1C2430; --ink:#E5E9EF; --muted:#9AA4B2; --rule:#2F3A49;
+    --navy:#8FB3E0; --pos:#6FA0E0; --neg:#E7737F; --coral:#F08C62; --coral-soft:#3A2A24;
+    --teal:#5DBBA3; --teal-soft:#1E3631; --node:#1C2430; --off:#2A3340;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151B24; --surface:#1C2430; --ink:#E5E9EF; --muted:#9AA4B2; --rule:#2F3A49;
+  --navy:#8FB3E0; --pos:#6FA0E0; --neg:#E7737F; --coral:#F08C62; --coral-soft:#3A2A24;
+  --teal:#5DBBA3; --teal-soft:#1E3631; --node:#1C2430; --off:#2A3340;
+  color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Charter,"Bitstream Charter","XCharter","Iowan Old Style",Georgia,serif;
+  font-size:17px;line-height:1.55}
+.ui,button,select,input,table,.stage-track,.calc,svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 20px 48px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.kicker{color:var(--muted);font-size:15px;margin:0 0 4px}
+h1{font-size:34px;line-height:1.15;margin:0 0 10px;color:var(--navy);font-weight:700}
+.lede{max-width:72ch;margin:0 0 20px;color:var(--ink)}
+h2{font-size:21px;color:var(--navy);margin:34px 0 8px}
+p,li{max-width:74ch}
+.theme-btn{flex:none}
+button{font-size:14px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);
+  padding:8px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.primary{background:var(--navy);border-color:var(--navy);color:var(--bg);font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+
+/* stage track */
+.stage-track{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 14px;font-size:13px;color:var(--muted)}
+.phase{display:flex;flex-direction:column;gap:5px}
+.phase-steps{display:flex;gap:4px}
+.pip{width:34px;height:26px;border-radius:4px;border:1px solid var(--rule);background:var(--surface);
+  color:var(--muted);font-size:13px;padding:0;display:grid;place-items:center}
+.pip.done{color:var(--ink)}
+.phase.fwd .pip.done{border-color:var(--navy)}
+.phase.bwd .pip.done{border-color:var(--coral)}
+.phase.upd .pip.done{border-color:var(--teal)}
+.phase.fwd .pip.current{background:var(--navy);color:var(--bg);border-color:var(--navy)}
+.phase.bwd .pip.current{background:var(--coral);color:var(--bg);border-color:var(--coral)}
+.phase.upd .pip.current{background:var(--teal);color:var(--bg);border-color:var(--teal)}
+
+.stepbar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 24px;flex-wrap:wrap;margin:6px 0 14px}
+.stepbar .stage-track{margin:0}
+#nextBtn{min-width:190px}
+.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:920px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+.net{padding:6px}
+.net svg{width:100%;height:auto;display:block}
+.explain{padding:16px 18px;min-height:300px}
+.explain h3{margin:0 0 6px;font-size:19px}
+.explain .where{font-size:13px;color:var(--muted);margin:0 0 8px}
+.explain p{margin:0 0 10px}
+.calc{font-size:15px;line-height:1.75;background:var(--bg);border-radius:6px;padding:10px 12px;
+  font-variant-numeric:tabular-nums;overflow-x:auto}
+.calc .row{padding-left:1.2em;text-indent:-1.2em}
+.note{margin-top:10px;padding:8px 12px;border-left:3px solid var(--coral);background:var(--coral-soft);font-size:15px}
+.note.teal{border-color:var(--teal);background:var(--teal-soft)}
+
+.controls{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-end;margin:16px 0 4px}
+.group{display:flex;flex-direction:column;gap:6px}
+.group > span{font-size:13px;color:var(--muted)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;border-right:1px solid var(--rule);padding:7px 12px;white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--navy);color:var(--bg)}
+.lr{display:flex;align-items:center;gap:10px;font-size:14px;font-variant-numeric:tabular-nums}
+input[type=range]{accent-color:var(--navy);width:150px}
+
+.tablewrap{overflow-x:auto;margin-top:18px}
+table{border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;min-width:560px;width:100%}
+caption{text-align:left;font-size:13px;color:var(--muted);padding:0 0 6px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:13px}
+td.g{color:var(--coral)}
+td.n{color:var(--teal);font-weight:600}
+.lossline{font-size:15px;margin-top:10px;font-variant-numeric:tabular-nums}
+.lossline b{font-weight:600}
+
+svg text{font-size:13px;fill:var(--ink)}
+svg .halo{paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
+svg .muted{fill:var(--muted)}
+svg .coral{fill:var(--coral)}
+svg .teal{fill:var(--teal)}
+svg .big{font-size:15px;font-weight:600}
+.node circle,.node rect{fill:var(--node);stroke:var(--ink);stroke-width:1.4}
+.node.off circle{fill:var(--off)}
+.edge{stroke-linecap:round;transition:stroke-width .25s,opacity .25s}
+.flow{fill:none;stroke-linecap:round;stroke-width:5;opacity:0}
+.flow.on{opacity:.9}
+.pulse{r:6}
+footer{margin-top:30px;font-size:14px;color:var(--muted);max-width:80ch}
+@media (prefers-reduced-motion:reduce){.edge{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <p class="kicker">Neural Network · one hidden layer</p>
+    <h1>Backpropagation, step by step</h1>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+</header>
+<p class="lede">One gradient-descent step on one training sample, split into its eight stages. The forward pass computes the network’s answer and the loss; the backward pass hands every neuron its error δ, starting from the output; the update moves each weight. Press <em>Next step</em> and follow the numbers on the network.</p>
+
+<div class="stepbar ui">
+  <div class="stage-track" id="track" aria-label="Stages of one gradient-descent step"></div>
+  <div class="btns stepbtns">
+    <button type="button" id="backBtn">Back</button>
+    <button type="button" class="primary" id="nextBtn">Next step</button>
+    <button type="button" id="finishBtn">Finish this step</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="panel net"><svg id="net" viewBox="0 0 760 396" role="img" aria-label="A network with two inputs, two hidden neurons and one output neuron, labelled with the current values"></svg></div>
+  <div class="panel explain" aria-live="polite">
+    <p class="where" id="where"></p>
+    <h3 id="stTitle"></h3>
+    <div id="stBody"></div>
+  </div>
+</div>
+
+<div class="controls ui">
+  <div class="group"><span>Training sample (XOR)</span>
+    <div class="seg" id="samples"></div>
+  </div>
+  <div class="group"><span>Hidden activation</span>
+    <div class="seg" id="acts"></div>
+  </div>
+  <div class="group"><span>Learning rate η</span>
+    <div class="lr"><input type="range" id="eta" min="0.1" max="2" step="0.1" value="0.5" aria-label="Learning rate"><span id="etaVal">0.5</span></div>
+  </div>
+  <div class="group"><span>Weights</span>
+    <div class="btns">
+      <button type="button" id="resetBtn">Worked example</button>
+      <button type="button" id="randBtn">Random weights</button>
+    </div>
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <caption>Parameters of the network for the current step</caption>
+  <thead><tr><th>Parameter</th><th>Value</th><th>Gradient ∂L/∂θ</th><th>After update θ − η ∂L/∂θ</th></tr></thead>
+  <tbody id="ptab"></tbody>
+</table>
+</div>
+<p class="lossline" id="lossline"></p>
+
+<h2>What you are looking at</h2>
+<p>The network has two inputs, two hidden neurons with the activation <i>g</i> chosen above, and one sigmoid output neuron trained with the cross-entropy loss. Hidden neuron <i>j</i> computes <i>z<sub>j</sub></i> = <b>w</b><sub><i>j</i></sub>·<b>x</b> + <i>b<sub>j</sub></i> and <i>h<sub>j</sub></i> = <i>g</i>(<i>z<sub>j</sub></i>); the output computes <i>s</i> = <i>v</i><sub>1</sub><i>h</i><sub>1</sub> + <i>v</i><sub>2</sub><i>h</i><sub>2</sub> + <i>c</i> and <i>p̂</i> = σ(<i>s</i>). Blue edges are positive weights, red negative; thicker means larger. Forward values appear in the nodes, errors δ in orange above them, and gradients in orange on the edges, next to the neuron they feed.</p>
+<p>The default weights and sample are the worked example of the PRML notes (Section 3.3), so every number can be checked against the hand calculation.</p>
+
+<h2>The take-home message</h2>
+<p>Backpropagation hands each neuron one number, its δ. For the output neuron it is <i>p̂</i> − <i>y</i>. Each hidden neuron receives that error weighted by its outgoing weight <i>v<sub>j</sub></i> and gated by the slope <i>g</i>′(<i>z<sub>j</sub></i>) of its activation. Every weight then moves by η times δ times the input it carries.</p>
+
+<h2>Things to try</h2>
+<ul>
+<li>With the defaults, step through all eight stages. At the hidden errors, the second neuron is off (<i>z</i><sub>2</sub> &lt; 0), so its ReLU gate closes and neither of its weights moves.</li>
+<li>Choose the sample (0, 1). Both hidden neurons are on now, yet the first weight of each gets a zero gradient: the input it carries, <i>x</i><sub>1</sub>, is 0.</li>
+<li>Switch the activation to sigmoid. The gate never closes completely, but its slope is at most 0.25, so every hidden δ is smaller than the output’s.</li>
+<li>Press <em>Random weights</em> a few times with sigmoid. When a hidden score is large, the slope is nearly zero and that neuron barely learns: saturation.</li>
+<li>Take a step on (1, 0), then switch to (0, 0) and take another. Each step lowers the loss on its own sample; whether it helps the other samples is not guaranteed.</li>
+</ul>
+
+<footer>A 2–2–1 network with a sigmoid output and cross-entropy loss, updated on one sample per step with no regularisation. The slope of ReLU at 0 is taken as 0, as in the notes. Numbers are rounded to four decimal places for display only. Nothing is fetched or stored; refresh to reset.</footer>
+</main>
+
+<script>
+(function(){
+"use strict";
+// ---------------------------------------------------------------- state
+const PRESET = {W:[[1,1],[-1,1]], b:[-0.5,0], v:[2,1], c:-1};
+const SAMPLES = [{x:[1,0],y:1},{x:[0,1],y:1},{x:[0,0],y:0},{x:[1,1],y:0}];
+const ACTS = {
+  relu:   {name:"ReLU",    f:z=>Math.max(0,z), d:(z,h)=>z>0?1:0},
+  sigmoid:{name:"sigmoid", f:z=>1/(1+Math.exp(-z)), d:(z,h)=>h*(1-h)},
+  tanh:   {name:"tanh",    f:z=>Math.tanh(z), d:(z,h)=>1-h*h}
+};
+const clone = p => JSON.parse(JSON.stringify(p));
+let P = clone(PRESET), sIdx = 0, act = "relu", eta = 0.5, stage = 0, steps = 0, lastChange = null;
+
+const sig = t => 1/(1+Math.exp(-t));
+const softplus = t => Math.max(t,0) + Math.log1p(Math.exp(-Math.abs(t)));
+function lossOf(s,y){ return y===1 ? softplus(-s) : softplus(s); }
+
+function compute(p){
+  const {x,y} = SAMPLES[sIdx], A = ACTS[act];
+  const z = [0,1].map(j => p.W[j][0]*x[0] + p.W[j][1]*x[1] + p.b[j]);
+  const h = z.map(A.f);
+  const s = p.v[0]*h[0] + p.v[1]*h[1] + p.c;
+  const ph = sig(s), L = lossOf(s,y);
+  const ds = ph - y;
+  const gv = h.map(hj => ds*hj), gc = ds;
+  const gp = [0,1].map(j => A.d(z[j],h[j]));
+  const dj = [0,1].map(j => ds*p.v[j]*gp[j]);
+  const gW = dj.map(d => [d*x[0], d*x[1]]), gb = dj.slice();
+  const n = {W:[0,1].map(j=>[0,1].map(k=>p.W[j][k]-eta*gW[j][k])),
+             b:[0,1].map(j=>p.b[j]-eta*gb[j]),
+             v:[0,1].map(j=>p.v[j]-eta*gv[j]), c:p.c-eta*gc};
+  const z2 = [0,1].map(j => n.W[j][0]*x[0]+n.W[j][1]*x[1]+n.b[j]);
+  const h2 = z2.map(A.f);
+  const s2 = n.v[0]*h2[0]+n.v[1]*h2[1]+n.c;
+  return {x,y,z,h,s,ph,L,ds,gv,gc,gp,dj,gW,gb,n,z2,h2,s2,L2:lossOf(s2,y),ph2:sig(s2)};
+}
+
+// ---------------------------------------------------------------- formatting
+function f(v){ if(Math.abs(v)<5e-5) return "0.0000"; return (v<0?"\u2212":"")+Math.abs(v).toFixed(4); }
+function fp(v){ return v<0 ? "("+f(v)+")" : f(v); }          // parenthesise negatives in products
+function fs(v){ return (v<0?" \u2212 ":" + ")+f(Math.abs(v)); } // signed term
+const vec = a => "("+a.map(f).join(", ")+")";
+const it = s => "<i>"+s+"</i>";
+const sub = (s,k) => it(s)+"<sub>"+k+"</sub>";
+const gname = () => act==="relu" ? "max(0, \u00b7)" : (act==="sigmoid" ? "\u03c3" : "tanh");
+
+// ---------------------------------------------------------------- SVG network
+const svg = document.getElementById("net");
+const NS = "http://www.w3.org/2000/svg";
+const POS = {x1:[80,110], x2:[80,270], h1:[340,110], h2:[340,270], o:[575,190], L:[700,190]};
+const R = 34;
+function el(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); (parent||svg).appendChild(e); return e; }
+function txt(x,y,cls,anchor,parent){ return el("text",{x,y,"class":cls||"","text-anchor":anchor||"middle"},parent); }
+function at(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+function trimmed(a,b,ra,rb){ const dx=b[0]-a[0], dy=b[1]-a[1], d=Math.hypot(dx,dy); return [a[0]+dx*ra/d, a[1]+dy*ra/d, b[0]-dx*rb/d, b[1]-dy*rb/d]; }
+
+const EDGES = [
+  {id:"w11", from:"x1", to:"h1"}, {id:"w12", from:"x2", to:"h1"},
+  {id:"w21", from:"x1", to:"h2"}, {id:"w22", from:"x2", to:"h2"},
+  {id:"v1", from:"h1", to:"o"},  {id:"v2", from:"h2", to:"o"},
+  {id:"oL", from:"o", to:"L"}
+];
+const E = {};
+const gEdges = el("g",{}), gFlow = el("g",{}), gLabels = el("g",{}), gNodes = el("g",{}), gPulse = el("g",{});
+EDGES.forEach(e => {
+  const a = POS[e.from], b = POS[e.to], rb = e.to==="L" ? 44 : R;
+  const [x1,y1,x2,y2] = trimmed(a,b,R,rb);
+  E[e.id] = {
+    base: el("line",{x1,y1,x2,y2,"class":"edge"},gEdges),
+    flow: el("line",{x1,y1,x2,y2,"class":"flow"},gFlow),
+    a:[x1,y1], b:[x2,y2]
+  };
+  if(e.id!=="oL"){
+    const t = e.id[0]==="w" ? 0.24 : 0.3, p = at(a,b,t);
+    const dy = (e.id==="w11"||e.id==="w22") ? -9 : (e.id==="v1" ? -9 : (e.id==="v2" ? 17 : 4));
+    E[e.id].lab = txt(p[0], p[1]+dy, "halo", "middle", gLabels);
+    const tq = (e.id==="w12"||e.id==="w21") ? 0.72 : (e.id[0]==="v" ? 0.55 : 0.68);
+    const q = at(a,b,tq), gy = (e.id==="w11") ? -9 : (e.id==="w21" ? 18 : e.id==="w22" ? 17 : (e.id==="v1" ? -10 : (e.id==="v2" ? 18 : 4)));
+    E[e.id].grad = txt(q[0], q[1]+gy, "halo coral", "middle", gLabels);
+  }
+});
+const N = {};
+function node(id, name){
+  const g = el("g",{"class":"node"},gNodes), [x,y] = POS[id];
+  if(id==="L"){ el("rect",{x:x-44,y:y-30,width:88,height:60,rx:8},g); }
+  else el("circle",{cx:x,cy:y,r:R},g);
+  const nm = txt(x, y-7, "muted","middle",g); nm.innerHTML = name;
+  const val = txt(x, y+13, "big","middle",g);
+  N[id] = {g, val,
+    below1: txt(x, y+R+19, "halo","middle",gLabels),
+    below2: txt(x, y+R+37, "halo muted","middle",gLabels),
+    below3: txt(x, y+R+55, "halo coral","middle",gLabels),
+    above:  txt(x, y-R-11, "halo coral big","middle",gLabels)};
+}
+node("x1","x<tspan baseline-shift='sub' font-size='10'>1</tspan>");
+node("x2","x<tspan baseline-shift='sub' font-size='10'>2</tspan>");
+node("h1","h<tspan baseline-shift='sub' font-size='10'>1</tspan>");
+node("h2","h<tspan baseline-shift='sub' font-size='10'>2</tspan>");
+node("o","p\u0302");
+node("L","loss L");
+// column captions
+[["input",80],["hidden layer",340],["output",575]].forEach(([t,x])=>{ const e=txt(x,390,"muted","middle"); e.textContent=t; });
+
+// ---------------------------------------------------------------- pulses (motion answers the button press)
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function pulse(ids, backward, color){
+  if(reduce) return;
+  ids.forEach(id => {
+    const e = E[id]; const from = backward ? e.b : e.a, to = backward ? e.a : e.b;
+    const c = el("circle",{cx:from[0],cy:from[1],r:6,fill:color},gPulse);
+    const t0 = performance.now(), dur = 650;
+    (function step(now){
+      const t = Math.min(1,(now-t0)/dur), u = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+      c.setAttribute("cx", from[0]+(to[0]-from[0])*u); c.setAttribute("cy", from[1]+(to[1]-from[1])*u);
+      c.setAttribute("opacity", t<0.85 ? 1 : (1-t)/0.15);
+      if(t<1) requestAnimationFrame(step); else c.remove();
+    })(t0);
+  });
+}
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------------------------------------------------------------- stage texts
+const STAGES = [
+  {phase:"fwd", title:"Hidden scores"},
+  {phase:"fwd", title:"Hidden outputs"},
+  {phase:"fwd", title:"Output and loss"},
+  {phase:"bwd", title:"Output error"},
+  {phase:"bwd", title:"Output neuron’s gradients"},
+  {phase:"bwd", title:"Hidden errors"},
+  {phase:"bwd", title:"Hidden neurons’ gradients"},
+  {phase:"upd", title:"Update"}
+];
+function stageHTML(k, r){
+  const x = r.x, j = [0,1];
+  const lines = a => '<div class="calc">'+a.map(s=>'<div class="row">'+s+'</div>').join("")+'</div>';
+  switch(k){
+  case 0: {
+    let p = "<p>Nothing has been computed yet. Press <em>Next step</em> to start the forward pass for the sample <b>x</b> = ("+x.join(", ")+"), label <i>y</i> = "+r.y+".</p>";
+    if(lastChange) p += '<div class="note teal">Step '+steps+' done: the loss on its sample went from '+f(lastChange[0])+' to '+f(lastChange[1])+'.</div>';
+    return p; }
+  case 1: return "<p>Each hidden neuron computes its score from the inputs: <i>z<sub>j</sub></i> = <b>w</b><sub><i>j</i></sub>·<b>x</b> + <i>b<sub>j</sub></i>.</p>"+
+    lines(j.map(i => sub("z",i+1)+" = "+f(P.W[i][0])+"\u00b7"+x[0]+" + "+fp(P.W[i][1])+"\u00b7"+x[1]+fs(P.b[i])+" = <b>"+f(r.z[i])+"</b>"));
+  case 2: return "<p>Each hidden neuron passes its score through the activation: <i>h<sub>j</sub></i> = <i>g</i>(<i>z<sub>j</sub></i>), with <i>g</i> = "+ACTS[act].name+".</p>"+
+    lines(j.map(i => sub("h",i+1)+" = "+gname().replace("\u00b7",f(r.z[i])).replace(/^(\u03c3|tanh)$/, "$1("+f(r.z[i])+")")+" = <b>"+f(r.h[i])+"</b>"));
+  case 3: {
+    const lossF = r.y===1 ? "\u2212ln "+it("p\u0302") : "\u2212ln(1 \u2212 "+it("p\u0302")+")";
+    return "<p>The output neuron is logistic regression on (<i>h</i><sub>1</sub>, <i>h</i><sub>2</sub>). The loss is the cross-entropy; with <i>y</i> = "+r.y+" only one of its terms survives.</p>"+
+    lines([it("s")+" = "+f(P.v[0])+"\u00b7"+f(r.h[0])+" + "+fp(P.v[1])+"\u00b7"+f(r.h[1])+fs(P.c)+" = <b>"+f(r.s)+"</b>",
+           it("p\u0302")+" = \u03c3("+f(r.s)+") = <b>"+f(r.ph)+"</b>",
+           it("L")+" = "+lossF+" = <b>"+f(r.L)+"</b>"]); }
+  case 4: return "<p>The backward pass starts at the output. Sigmoid and cross-entropy are a matched pair, so the output’s error is simply prediction minus target.</p>"+
+    lines([sub("\u03b4","s")+" = "+it("p\u0302")+" \u2212 "+it("y")+" = "+f(r.ph)+" \u2212 "+r.y+" = <b>"+f(r.ds)+"</b>"])+
+    "<p style='margin-top:10px'>"+(r.ds<0 ? "Negative: the score <i>s</i> should go up." : "Positive: the score <i>s</i> should go down.")+"</p>";
+  case 5: return "<p>The output neuron updates like a single neuron whose inputs are <i>h</i><sub>1</sub> and <i>h</i><sub>2</sub>: its δ times the input each weight carries.</p>"+
+    lines([...j.map(i => "\u2202"+it("L")+"/\u2202"+sub("v",i+1)+" = "+sub("\u03b4","s")+"\u00b7"+sub("h",i+1)+" = "+fp(r.ds)+"\u00b7"+f(r.h[i])+" = <b>"+f(r.gv[i])+"</b>"),
+           "\u2202"+it("L")+"/\u2202"+it("c")+" = "+sub("\u03b4","s")+" = <b>"+f(r.gc)+"</b>"]) +
+    (j.some(i=>Math.abs(r.h[i])<5e-5) ? '<div class="note">A hidden neuron with output 0 sends nothing forward, so the weight carrying it gets no gradient.</div>' : "");
+  case 6: {
+    const closed = j.filter(i => r.gp[i]===0), weak = j.filter(i => r.gp[i]>0 && r.gp[i]<0.02);
+    let note = "";
+    if(closed.length) note = '<div class="note">Gate closed: hidden neuron '+closed.map(i=>i+1).join(" and ")+(closed.length>1?" are":" is")+' off ('+closed.map(i=>sub("z",i+1)).join(", ")+' \u2264 0), so ReLU’s slope is 0 and no error reaches '+(closed.length>1?"them":"it")+'.</div>';
+    else if(weak.length) note = '<div class="note">Hidden neuron '+weak.map(i=>i+1).join(" and ")+' is saturated: its slope is nearly 0, so almost no error gets through.</div>';
+    return "<p>Each hidden neuron receives the output’s error, weighted by its outgoing weight <i>v<sub>j</sub></i> and gated by the slope of its activation: <i>δ<sub>j</sub></i> = <i>δ<sub>s</sub></i>·<i>v<sub>j</sub></i>·<i>g</i>′(<i>z<sub>j</sub></i>).</p>"+
+    lines(j.map(i => sub("\u03b4",i+1)+" = "+fp(r.ds)+"\u00b7"+fp(P.v[i])+"\u00b7"+f(r.gp[i])+" = <b>"+f(r.dj[i])+"</b>"))+note; }
+  case 7: {
+    const zeroIn = [0,1].filter(k => x[k]===0);
+    let note = zeroIn.length ? '<div class="note">'+zeroIn.map(k=>sub("x",k+1)).join(" and ")+" = 0, so the weight"+(zeroIn.length>1?"s":"")+" carrying "+(zeroIn.length>1?"them":"it")+" into each hidden neuron get"+(zeroIn.length>1?"":"s")+" no gradient from this sample.</div>" : "";
+    return "<p>Each hidden neuron now updates exactly like a single neuron: its own δ times the input each weight carries.</p>"+
+    lines([...j.map(i => "\u2202"+it("L")+"/\u2202"+"<b>w</b><sub>"+(i+1)+"</sub> = "+sub("\u03b4",i+1)+"<b>x</b> = "+fp(r.dj[i])+"\u00b7("+x.join(", ")+") = <b>"+vec(r.gW[i])+"</b>"),
+           ...j.map(i => "\u2202"+it("L")+"/\u2202"+sub("b",i+1)+" = "+sub("\u03b4",i+1)+" = <b>"+f(r.gb[i])+"</b>")])+note; }
+  case 8: return "<p>Every parameter moves against its gradient: <span style='white-space:nowrap'>θ \u2190 θ \u2212 η\u2009\u2202<i>L</i>/\u2202θ</span>, with η = "+eta.toFixed(1)+". The network now shows the new weights and the forward pass they give; the table lists every new value.</p>"+
+    lines([it("p\u0302")+" before: "+f(r.ph)+", after: <b>"+f(r.ph2)+"</b>",
+           it("L")+" before: "+f(r.L)+", after: <b>"+f(r.L2)+"</b>"])+
+    '<div class="note teal">Press <em>Next step</em> to keep these weights and start a new step.</div>';
+  }
+}
+
+// ---------------------------------------------------------------- render
+const track = document.getElementById("track");
+(function buildTrack(){
+  [["fwd","Forward",[1,2,3]],["bwd","Backward",[4,5,6,7]],["upd","Update",[8]]].forEach(([cls,label,ks])=>{
+    const d = document.createElement("div"); d.className="phase "+cls;
+    d.innerHTML = "<span>"+label+"</span>"; const row = document.createElement("div"); row.className="phase-steps";
+    ks.forEach(k => { const b=document.createElement("button"); b.type="button"; b.className="pip"; b.textContent=k; b.dataset.k=k;
+      b.setAttribute("aria-label","Stage "+k+": "+STAGES[k-1].title); b.onclick=()=>go(k); row.appendChild(b); });
+    d.appendChild(row); track.appendChild(d);
+  });
+})();
+
+function setText(t, s){ t.textContent = s; }
+function render(){
+  const r = compute(P), A = ACTS[act];
+  const show = stage===8 ? r.n : P;   // weights drawn on the edges
+  // edges: weight, colour, thickness
+  const wOf = {w11:show.W[0][0], w12:show.W[0][1], w21:show.W[1][0], w22:show.W[1][1], v1:show.v[0], v2:show.v[1]};
+  for(const id in wOf){
+    const w = wOf[id], e = E[id];
+    e.base.setAttribute("stroke", w>=0 ? css("--pos") : css("--neg"));
+    e.base.setAttribute("stroke-width", (1.2 + 2.4*Math.min(Math.abs(w),3)).toFixed(2));
+    e.base.setAttribute("opacity", stage>=4 && stage<=7 ? .35 : .85);
+    e.lab.textContent = f(w); e.lab.setAttribute("class", "halo"+(stage===8?" teal":""));
+  }
+  E.oL.base.setAttribute("stroke", css("--muted")); E.oL.base.setAttribute("stroke-width", 1.6);
+  // gradients on edges
+  const gOf = {w11:r.gW[0][0], w12:r.gW[0][1], w21:r.gW[1][0], w22:r.gW[1][1], v1:r.gv[0], v2:r.gv[1]};
+  for(const id in gOf){
+    const vis = (id[0]==="v" && stage>=5 && stage<8) || (id[0]==="w" && stage>=7 && stage<8);
+    E[id].grad.textContent = vis ? f(gOf[id]) : "";
+  }
+  // flows (current stage only)
+  const flowSets = {1:["w11","w12","w21","w22"],3:["v1","v2","oL"],4:["oL"],5:["v1","v2"],6:["v1","v2"],7:["w11","w12","w21","w22"],8:["w11","w12","w21","w22","v1","v2"]};
+  const col = stage<=3 ? css("--navy") : (stage<=7 ? css("--coral") : css("--teal"));
+  Object.values(E).forEach(e => { e.flow.classList.remove("on"); });
+  (flowSets[stage]||[]).forEach(id => {
+    if(stage===7 && r.gW[id[1]-1][id[2]-1]===0) return;  // zero gradient: nothing flows
+    if(stage===6 && r.gp[id[1]-1]===0) return;
+    E[id].flow.setAttribute("stroke", col); E[id].flow.classList.add("on");
+  });
+  // nodes
+  setText(N.x1.val, String(r.x[0])); setText(N.x2.val, String(r.x[1]));
+  setText(N.x1.below1, ""); setText(N.x2.below1, "");
+  [0,1].forEach(i => {
+    const n = N["h"+(i+1)];
+    setText(n.val, stage===8 ? f(r.h2[i]) : (stage>=2 ? f(r.h[i]) : ""));
+    n.val.setAttribute("class","big"+(stage===8?" teal":""));
+    setText(n.below1, stage===8 ? "z = "+f(r.z2[i]) : (stage>=1 ? "z = "+f(r.z[i]) : ""));
+    n.below1.setAttribute("class","halo"+(stage===8?" teal":""));
+    setText(n.below2, "b = "+f(stage===8 ? r.n.b[i] : P.b[i]));
+    n.below2.setAttribute("class","halo "+(stage===8?"teal":"muted"));
+    setText(n.below3, stage===7 ? "\u2202L/\u2202b = "+f(r.gb[i]) : "");
+    setText(n.above, stage>=6 && stage<8 ? "\u03b4 = "+f(r.dj[i]) : "");
+    n.g.classList.toggle("off", stage>=6 && stage<8 && r.gp[i]===0);
+  });
+  setText(N.o.val, stage>=3 ? f(stage===8 ? r.ph2 : r.ph) : "");
+  setText(N.o.below1, stage===8 ? "s = "+f(r.s2) : (stage>=3 ? "s = "+f(r.s) : ""));
+  N.o.below1.setAttribute("class","halo"+(stage===8?" teal":""));
+  N.o.val.setAttribute("class","big"+(stage===8?" teal":"")); N.L.val.setAttribute("class","big"+(stage===8?" teal":""));
+  setText(N.o.below2, "c = "+f(stage===8 ? r.n.c : P.c));
+  N.o.below2.setAttribute("class","halo "+(stage===8?"teal":"muted"));
+  setText(N.o.below3, stage>=5&&stage<8 ? "\u2202L/\u2202c = "+f(r.gc) : "");
+  setText(N.o.above, stage>=4 && stage<8 ? "\u03b4s = "+f(r.ds) : "");
+  setText(N.L.val, stage>=3 ? f(stage===8 ? r.L2 : r.L) : "");
+  setText(N.L.below1, "y = "+r.y); N.L.below1.setAttribute("class","halo muted");
+  setText(N.L.below2, ""); setText(N.L.below3, ""); setText(N.x1.below3,""); setText(N.x2.below3,"");
+  // track
+  track.querySelectorAll(".pip").forEach(b => { const k=+b.dataset.k; b.classList.toggle("done",k<stage); b.classList.toggle("current",k===stage); b.setAttribute("aria-current", k===stage?"step":"false"); });
+  // panel
+  document.getElementById("where").textContent = stage===0 ? "Step "+(steps+1)+", ready" : "Step "+(steps+1)+", stage "+stage+" of 8, "+({fwd:"forward pass",bwd:"backward pass",upd:"update"})[STAGES[stage-1].phase];
+  document.getElementById("stTitle").textContent = stage===0 ? "Ready" : STAGES[stage-1].title;
+  document.getElementById("stBody").innerHTML = stageHTML(stage, r);
+  // table
+  const rows = [
+    ["<b>w</b><sub>1</sub>", vec(P.W[0]), stage>=7?vec(r.gW[0]):"", stage===8?vec(r.n.W[0]):""],
+    ["<i>b</i><sub>1</sub>", f(P.b[0]), stage>=7?f(r.gb[0]):"", stage===8?f(r.n.b[0]):""],
+    ["<b>w</b><sub>2</sub>", vec(P.W[1]), stage>=7?vec(r.gW[1]):"", stage===8?vec(r.n.W[1]):""],
+    ["<i>b</i><sub>2</sub>", f(P.b[1]), stage>=7?f(r.gb[1]):"", stage===8?f(r.n.b[1]):""],
+    ["<b>v</b>", vec(P.v), stage>=5?vec(r.gv):"", stage===8?vec(r.n.v):""],
+    ["<i>c</i>", f(P.c), stage>=5?f(r.gc):"", stage===8?f(r.n.c):""]
+  ];
+  document.getElementById("ptab").innerHTML = rows.map(rw => "<tr><td>"+rw[0]+"</td><td>"+rw[1]+"</td><td class='g'>"+rw[2]+"</td><td class='n'>"+rw[3]+"</td></tr>").join("");
+  document.getElementById("lossline").innerHTML = stage>=3 ? "Loss on this sample: <b>"+f(r.L)+"</b>"+(stage===8?" \u2192 <b>"+f(r.L2)+"</b> after the update":"") : "";
+  document.getElementById("backBtn").disabled = stage===0;
+  document.getElementById("finishBtn").disabled = stage===8;
+  document.getElementById("nextBtn").textContent = stage===8 ? "Keep and start next step" : "Next step";
+  return r;
+}
+
+function animateFor(k, r){
+  if(k===1) pulse(["w11","w12","w21","w22"], false, css("--navy"));
+  if(k===3) pulse(["v1","v2","oL"], false, css("--navy"));
+  if(k===4) pulse(["oL"], true, css("--coral"));
+  if(k===6) pulse(["v1","v2"].filter((id,i)=>r.gp[i]!==0), true, css("--coral"));
+  if(k===7) pulse(["w11","w12","w21","w22"].filter(id => r.gW[+id[1]-1][+id[2]-1]!==0), true, css("--coral"));
+  if(k===8) pulse(["w11","w12","w21","w22","v1","v2"], false, css("--teal"));
+}
+const panel = document.querySelector(".explain");
+function fitPanel(){
+  const r = compute(P), saved = stage, title = document.getElementById("stTitle"), body = document.getElementById("stBody");
+  panel.style.minHeight = "0px";
+  let h = 0;
+  for(let k=0;k<=8;k++){
+    title.textContent = k===0 ? "Ready" : STAGES[k-1].title;
+    body.innerHTML = stageHTML(k, r);
+    h = Math.max(h, panel.offsetHeight);
+  }
+  panel.style.minHeight = h+"px";
+  stage = saved; render();
+}
+function go(k){ stage = k; const r = render(); animateFor(k, r); }
+function next(){
+  if(stage===8){ const r = compute(P); lastChange=[r.L, r.L2]; P = r.n; steps++; stage = 0; fitPanel(); return; }
+  go(stage+1);
+}
+function resetStage(){ stage = 0; lastChange = null; fitPanel(); }
+
+document.getElementById("nextBtn").onclick = next;
+document.getElementById("backBtn").onclick = () => { if(stage>0){ stage--; render(); } };
+document.getElementById("finishBtn").onclick = () => go(8);
+document.getElementById("resetBtn").onclick = () => { P = clone(PRESET); steps = 0; resetStage(); };
+document.getElementById("randBtn").onclick = () => {
+  const r = (lo,hi) => Math.round((lo+Math.random()*(hi-lo))*10)/10;
+  P = {W:[[r(-2,2),r(-2,2)],[r(-2,2),r(-2,2)]], b:[r(-1,1),r(-1,1)], v:[r(-2,2),r(-2,2)], c:r(-1,1)};
+  steps = 0; resetStage();
+};
+const etaIn = document.getElementById("eta");
+etaIn.oninput = () => { eta = +etaIn.value; document.getElementById("etaVal").textContent = eta.toFixed(1); render(); };
+etaIn.onchange = fitPanel;
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(fitPanel, 150); });
+
+function segGroup(id, items, current, onPick){
+  const box = document.getElementById(id);
+  items.forEach(([key,label]) => {
+    const b = document.createElement("button"); b.type="button"; b.innerHTML = label; b.dataset.key = key;
+    b.setAttribute("aria-pressed", String(key===current));
+    b.onclick = () => { box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); onPick(key); };
+    box.appendChild(b);
+  });
+}
+segGroup("samples", SAMPLES.map((s,i)=>[i, "("+s.x.join(", ")+") <span style='opacity:.75'>y = "+s.y+"</span>"]), 0, k => { sIdx = +k; resetStage(); });
+segGroup("acts", Object.keys(ACTS).map(k=>[k, ACTS[k].name]), "relu", k => { act = k; resetStage(); });
+
+document.addEventListener("keydown", e => {
+  if(e.target.closest("input,button")) return;
+  if(e.key==="ArrowRight"){ next(); e.preventDefault(); }
+  if(e.key==="ArrowLeft" && stage>0){ stage--; render(); e.preventDefault(); }
+});
+
+// theme toggle
+const themeBtn = document.getElementById("themeBtn");
+function isDark(){ const t=document.documentElement.dataset.theme; return t ? t==="dark" : window.matchMedia("(prefers-color-scheme: dark)").matches; }
+function syncTheme(){ themeBtn.textContent = isDark() ? "Light" : "Dark"; render(); }
+themeBtn.onclick = () => { document.documentElement.dataset.theme = isDark() ? "light" : "dark"; syncTheme(); };
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncTheme);
+
+syncTheme();
+fitPanel();
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitPanel);
+})();
+</script>
+</body>
+</html>
